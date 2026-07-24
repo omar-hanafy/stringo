@@ -1,0 +1,16 @@
+{
+  "name": "stringo-tools",
+  "owner": {
+    "name": "Omar Hanafy"
+  },
+  "description": "AI coding-assistant plugins for the stringo Dart package",
+  "plugins": [
+    {
+      "name": "stringo",
+      "source": "./tooling/ai/stringo",
+      "description": "Package-specific skills for the stringo Dart package: exact string APIs (case conversion, toWords, slugify, truncate, mask, whitespace, blank and character checks), the documented ASCII and Unicode limits, and migrating string code off dart_helper_utils.",
+      "category": "developer-tools",
+      "tags": ["dart", "flutter", "string", "case-conversion", "slugify"]
+    }
+  ]
+}

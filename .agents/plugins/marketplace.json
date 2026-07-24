@@ -1,0 +1,19 @@
+{
+  "name": "stringo-tools",
+  "interface": {
+    "displayName": "Stringo Tools"
+  },
+  "plugins": [
+    {
+      "name": "stringo",
+      "source": {
+        "source": "local",
+        "path": "./tooling/ai/stringo"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

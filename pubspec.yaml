@@ -1,0 +1,21 @@
+name: stringo
+description: Zero-dependency Dart string toolkit - case conversion, word splitting, slugify, truncate, mask, and whitespace normalization.
+repository: https://github.com/omar-hanafy/stringo
+homepage: https://github.com/omar-hanafy/stringo
+issue_tracker: https://github.com/omar-hanafy/stringo/issues
+documentation: https://pub.dev/documentation/stringo/latest/
+version: 1.0.0
+
+topics:
+  - string
+  - case-conversion
+  - slugify
+  - extensions
+  - utilities
+
+environment:
+  sdk: ^3.10.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.29.0
