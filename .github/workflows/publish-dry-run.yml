@@ -3,26 +3,25 @@ name: pub-dry-run
 on:
   pull_request:
   push:
-    branches: [main, dev]
+    branches:
+      - main
+      - dev
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: "."
+
 jobs:
   dry-run:
-    name: pub-dry-run / dry-run
+    name: dry-run
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Dart
-        uses: dart-lang/setup-dart@v1
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Pub publish dry-run
-        run: dart pub publish --dry-run
+      - run: dart pub get
+      - run: dart pub publish --dry-run
