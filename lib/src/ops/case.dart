@@ -18,6 +18,14 @@ import 'package:stringo/src/chars.dart';
 import 'package:stringo/src/title_case_exceptions.dart';
 import 'package:stringo/src/word_scanner.dart';
 
+/// Sentinel for "join these words with nothing between them".
+const int _noSeparator = -1;
+
+const int _underscore = 0x5F;
+const int _hyphen = 0x2D;
+const int _dot = 0x2E;
+const int _space = 0x20;
+
 /// How a single word should be cased when written out.
 enum _WordCase {
   /// Every character lowercased.
@@ -62,25 +70,49 @@ String _applyCaseUnicode(String word, _WordCase mode) => switch (mode) {
 
 /// Streams the words of [s] into one buffer, joined by [separator], casing the
 /// first word as [firstCase] and every later word as [restCase].
+///
+/// [separator] is a single code unit, or [_noSeparator] for none. It is not a
+/// `String` on purpose: a `StringBuffer` that receives `writeCharCode` calls
+/// interleaved with `write(String)` calls runs about 2.6x slower than one
+/// receiving only `writeCharCode`, because the two go through different
+/// internal paths. Every separator this package emits is a single ASCII
+/// character, so keeping the buffer in one mode is free.
 String _convert(
   String s,
-  String separator,
+  int separator,
   _WordCase firstCase,
   _WordCase restCase,
 ) {
   final buffer = StringBuffer();
-  final ascii = isAsciiString(s);
-  var index = 0;
-  scanWords(s, (start, end) {
-    if (index > 0 && separator.isNotEmpty) buffer.write(separator);
-    final mode = index == 0 ? firstCase : restCase;
-    if (ascii) {
-      _writeWordAscii(buffer, s, start, end, mode);
-    } else {
-      buffer.write(_applyCaseUnicode(s.substring(start, end), mode));
-    }
-    index++;
-  });
+  // The ASCII test is hoisted out of the per-word callback: branching once per
+  // string rather than once per word, and it keeps each closure monomorphic.
+  //
+  // "Is this the first word?" is read from the buffer rather than a counter,
+  // because a mutable captured variable is boxed onto the heap in Dart and
+  // that box costs an allocation on every conversion. Words are never empty,
+  // so an empty buffer means nothing has been written yet.
+  if (isAsciiString(s)) {
+    scanWords(s, (start, end) {
+      final isFirst = buffer.isEmpty;
+      if (!isFirst && separator != _noSeparator) {
+        buffer.writeCharCode(separator);
+      }
+      _writeWordAscii(buffer, s, start, end, isFirst ? firstCase : restCase);
+    });
+  } else {
+    scanWords(s, (start, end) {
+      final isFirst = buffer.isEmpty;
+      if (!isFirst && separator != _noSeparator) {
+        buffer.writeCharCode(separator);
+      }
+      buffer.write(
+        _applyCaseUnicode(
+          s.substring(start, end),
+          isFirst ? firstCase : restCase,
+        ),
+      );
+    });
+  }
   return buffer.toString();
 }
 
@@ -93,54 +125,55 @@ List<String> words(String s) => scanWordsToList(s);
 
 /// Converts [s] to `PascalCase`, also known as UpperCamelCase.
 String pascalCase(String s) =>
-    _convert(s, '', _WordCase.capitalize, _WordCase.capitalize);
+    _convert(s, _noSeparator, _WordCase.capitalize, _WordCase.capitalize);
 
 /// Converts [s] to `camelCase`, also known as dromedaryCase.
 String camelCase(String s) =>
-    _convert(s, '', _WordCase.lower, _WordCase.capitalize);
+    _convert(s, _noSeparator, _WordCase.lower, _WordCase.capitalize);
 
 /// Converts [s] to `snake_case`, also known as snail_case or pothole_case.
 String snakeCase(String s) =>
-    _convert(s, '_', _WordCase.lower, _WordCase.lower);
+    _convert(s, _underscore, _WordCase.lower, _WordCase.lower);
 
 /// Converts [s] to `kebab-case`, also known as dash-case or spinal-case.
 String kebabCase(String s) =>
-    _convert(s, '-', _WordCase.lower, _WordCase.lower);
+    _convert(s, _hyphen, _WordCase.lower, _WordCase.lower);
 
 /// Converts [s] to `dot.case`.
-String dotCase(String s) => _convert(s, '.', _WordCase.lower, _WordCase.lower);
+String dotCase(String s) => _convert(s, _dot, _WordCase.lower, _WordCase.lower);
 
 /// Converts [s] to `flatcase`.
-String flatCase(String s) => _convert(s, '', _WordCase.lower, _WordCase.lower);
+String flatCase(String s) =>
+    _convert(s, _noSeparator, _WordCase.lower, _WordCase.lower);
 
 /// Converts [s] to `SCREAMINGCASE`.
 String screamingCase(String s) =>
-    _convert(s, '', _WordCase.upper, _WordCase.upper);
+    _convert(s, _noSeparator, _WordCase.upper, _WordCase.upper);
 
 /// Converts [s] to `SCREAMING_SNAKE_CASE`, also known as CONSTANT_CASE.
 String screamingSnakeCase(String s) =>
-    _convert(s, '_', _WordCase.upper, _WordCase.upper);
+    _convert(s, _underscore, _WordCase.upper, _WordCase.upper);
 
 /// Converts [s] to `SCREAMING-KEBAB-CASE`, also known as COBOL-CASE.
 String screamingKebabCase(String s) =>
-    _convert(s, '-', _WordCase.upper, _WordCase.upper);
+    _convert(s, _hyphen, _WordCase.upper, _WordCase.upper);
 
 /// Converts [s] to `Pascal_Snake_Case`.
 String pascalSnakeCase(String s) =>
-    _convert(s, '_', _WordCase.capitalize, _WordCase.capitalize);
+    _convert(s, _underscore, _WordCase.capitalize, _WordCase.capitalize);
 
 /// Converts [s] to `Pascal-Kebab-Case`, also known as Train-Case or
 /// HTTP-Header-Case.
 String pascalKebabCase(String s) =>
-    _convert(s, '-', _WordCase.capitalize, _WordCase.capitalize);
+    _convert(s, _hyphen, _WordCase.capitalize, _WordCase.capitalize);
 
 /// Converts [s] to `camel_Snake_Case`.
 String camelSnakeCase(String s) =>
-    _convert(s, '_', _WordCase.lower, _WordCase.capitalize);
+    _convert(s, _underscore, _WordCase.lower, _WordCase.capitalize);
 
 /// Converts [s] to `camel-Kebab-Case`.
 String camelKebabCase(String s) =>
-    _convert(s, '-', _WordCase.lower, _WordCase.capitalize);
+    _convert(s, _hyphen, _WordCase.lower, _WordCase.capitalize);
 
 /// Converts [s] to `Title Case`.
 ///
@@ -150,18 +183,20 @@ String camelKebabCase(String s) =>
 String titleCase(String s) {
   final buffer = StringBuffer();
   final ascii = isAsciiString(s);
-  var index = 0;
   scanWords(s, (start, end) {
-    if (index > 0) buffer.write(' ');
+    final isFirst = buffer.isEmpty;
+    if (!isFirst) buffer.writeCharCode(_space);
+    // The exception lookup needs the word itself, so unlike the other
+    // conversions this one does materialize a substring per word.
     final word = s.substring(start, end);
-    final lower = index > 0 && shouldIgnoreCapitalization(word);
-    final mode = lower ? _WordCase.lower : _WordCase.capitalize;
+    final mode = !isFirst && shouldIgnoreCapitalization(word)
+        ? _WordCase.lower
+        : _WordCase.capitalize;
     if (ascii) {
       _writeWordAscii(buffer, s, start, end, mode);
     } else {
       buffer.write(_applyCaseUnicode(word, mode));
     }
-    index++;
   });
   return buffer.toString();
 }
