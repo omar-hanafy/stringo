@@ -192,6 +192,27 @@ String truncate(String s, int length, {String suffix = '...'}) {
   return '${s.substring(0, keep)}$suffix';
 }
 
+/// Validates the visibility bounds shared by every `mask` entry point.
+///
+/// This is separate from [mask] itself so the nullable extension can reject a
+/// negative bound before it decides what to do about a null receiver. Argument
+/// validation is a programmer-error check and must not depend on whether the
+/// receiver happened to be null.
+///
+/// Throws an [ArgumentError] when either bound is negative.
+void validateMaskBounds(int visibleStart, int visibleEnd) {
+  if (visibleStart < 0) {
+    throw ArgumentError.value(
+      visibleStart,
+      'visibleStart',
+      'Must not be negative',
+    );
+  }
+  if (visibleEnd < 0) {
+    throw ArgumentError.value(visibleEnd, 'visibleEnd', 'Must not be negative');
+  }
+}
+
 /// Replaces the middle of [s] with [char], keeping [visibleStart] leading and
 /// [visibleEnd] trailing characters visible.
 ///
@@ -207,16 +228,7 @@ String mask(
   int visibleEnd = 0,
   String char = '*',
 }) {
-  if (visibleStart < 0) {
-    throw ArgumentError.value(
-      visibleStart,
-      'visibleStart',
-      'Must not be negative',
-    );
-  }
-  if (visibleEnd < 0) {
-    throw ArgumentError.value(visibleEnd, 'visibleEnd', 'Must not be negative');
-  }
+  validateMaskBounds(visibleStart, visibleEnd);
   if (s.length <= visibleStart + visibleEnd) return s;
   return s.substring(0, visibleStart) +
       char * (s.length - visibleStart - visibleEnd) +
