@@ -11,6 +11,7 @@ MCP servers, no telemetry, no network access.
 |---|---|
 | `use-stringo` | Exact member names and semantics across the string surface (case conversion, `toWords`, slugify, truncate, mask, whitespace, blank and character checks), plus the documented ASCII/Unicode limits and the scope rule that keeps domain validation out of this package |
 | `migrate-to-stringo-from-dart-helper-utils` | Moving string code off `dart_helper_utils`, deciding whether the move is worth it, and the two things that changed in DHU 6.1.0 (extension type names, first-word title casing) |
+| `migrate-stringo-v1-to-v2` | Upgrading a project from stringo 1.x to 2.x: the two removed members, the two signatures that became nullable, and the six silent behavior changes that still compile |
 
 ## Install in Claude Code
 

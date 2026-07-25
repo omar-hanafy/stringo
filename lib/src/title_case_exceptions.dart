@@ -1,0 +1,83 @@
+/// The word list conventional title casing leaves lowercase.
+library;
+
+/// Words that title casing leaves lowercase when they appear after the first
+/// word.
+///
+/// These are the English articles, conjunctions, and short prepositions that
+/// conventional title casing does not capitalize. The first word of a title is
+/// always capitalized regardless of this list, so `'the lord of the rings'`
+/// becomes `'The Lord of the Rings'`.
+///
+/// Exposed so callers can inspect the rule or build their own casing on top of
+/// it. Backed by a `Set` for constant-time lookup.
+const Set<String> titleCaseExceptions = <String>{
+  'a',
+  'abaft',
+  'about',
+  'above',
+  'afore',
+  'after',
+  'along',
+  'amid',
+  'among',
+  'an',
+  'and',
+  'apud',
+  'as',
+  'aside',
+  'at',
+  'atop',
+  'below',
+  'but',
+  'by',
+  'circa',
+  'down',
+  'for',
+  'from',
+  'given',
+  'in',
+  'into',
+  'lest',
+  'like',
+  'mid',
+  'midst',
+  'minus',
+  'near',
+  'next',
+  'nor',
+  'of',
+  'off',
+  'on',
+  'onto',
+  'or',
+  'out',
+  'over',
+  'pace',
+  'past',
+  'per',
+  'plus',
+  'pro',
+  'qua',
+  'round',
+  'sans',
+  'save',
+  'since',
+  'so',
+  'than',
+  'the',
+  'thru',
+  'till',
+  'times',
+  'to',
+  'under',
+  'until',
+  'unto',
+  'up',
+  'upon',
+  'via',
+  'vice',
+  'with',
+  'worth',
+  'yet',
+};

@@ -1,14 +1,14 @@
 {
   "name": "stringo",
-  "version": "1.0.0",
-  "description": "Package-specific skills for the stringo Dart package: exact string APIs (case conversion, toWords, slugify, truncate, mask, whitespace, blank and character checks), the documented ASCII and Unicode limits, and migrating string code off dart_helper_utils.",
+  "version": "2.0.0",
+  "description": "Package-specific skills for the stringo Dart package: exact string APIs (case conversion, toWords, the Stringo functional core, slugify, truncate, mask, whitespace, blank and character checks), the documented ASCII and Unicode limits, upgrading from stringo 1.x to 2.x, and migrating string code off dart_helper_utils.",
   "author": {
     "name": "Omar Hanafy",
     "url": "https://github.com/omar-hanafy"
   },
   "homepage": "https://github.com/omar-hanafy/stringo#ai-coding-assistant-support",
   "repository": "https://github.com/omar-hanafy/stringo",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "keywords": [
     "dart",
     "flutter",

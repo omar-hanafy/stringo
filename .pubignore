@@ -8,3 +8,8 @@ tooling/
 tool/
 AGENTS.md
 CLAUDE.md
+
+# Benchmarks are a maintainer tool, not part of the published package.
+benchmark/
+# Specs and plans are development artifacts.
+docs/

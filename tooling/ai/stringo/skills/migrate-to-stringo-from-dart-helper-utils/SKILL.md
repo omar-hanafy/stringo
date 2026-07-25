@@ -5,8 +5,14 @@ description: Use when moving a Dart/Flutter project's string code from dart_help
 
 # Migrate string code to stringo
 
-`stringo` 1.0.0 is the string toolkit extracted from `dart_helper_utils`
-(DHU) 6.1.0. DHU depends on it and re-exports it.
+`stringo` is the string toolkit extracted from `dart_helper_utils` (DHU)
+6.1.0. DHU depends on it and re-exports it.
+
+The current release is 2.x. DHU 6.1.x pins stringo `^1.0.0`, so a project that
+still depends on DHU gets 1.x semantics. If you adopt stringo directly at 2.x
+after having used DHU's string helpers, also read the
+`migrate-stringo-v1-to-v2` skill: several behaviors changed between 1.x and
+2.x.
 
 ## Step 0: decide whether you need to do anything
 
@@ -70,7 +76,7 @@ with `mask` - it did not, it depends on `isValidEmail`), and `limitFromStart`
 
 ```yaml
 dependencies:
-  stringo: ^1.0.0   # replaces dart_helper_utils
+  stringo: ^2.0.0   # replaces dart_helper_utils
 ```
 
 ```dart
