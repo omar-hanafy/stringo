@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:stringo/src/ops/case.dart' as ops;
 import 'package:stringo/src/word_scanner.dart';
 import 'package:test/test.dart';
 
@@ -73,7 +74,7 @@ void main() {
       '\u{00C9}COLE', 'caf\u{00E9}Au',
       'a' * 10000,
       '${'_' * 5000}x${'_' * 5000}',
-      '${'aB' * 2000}',
+      'aB' * 2000,
       ' \u{00A0}\u{3000}a\u{2028}b\u{FEFF} ',
     ];
     for (final input in inputs) {
@@ -82,6 +83,48 @@ void main() {
         _v1Normalized(input),
         reason: 'input: "${_escape(input)}"',
       );
+    }
+  });
+
+  test('every case conversion matches its v1 implementation', () {
+    // This is the test that proves the ASCII fast path never diverges from
+    // Dart's native Unicode casing. Each entry pairs the new op with the
+    // 1.0.0 map-and-join implementation of the same conversion.
+    final conversions =
+        <String, (String Function(String), String Function(String))>{
+          'pascalCase': (ops.pascalCase, v1PascalCase),
+          'camelCase': (ops.camelCase, v1CamelCase),
+          'snakeCase': (ops.snakeCase, v1SnakeCase),
+          'kebabCase': (ops.kebabCase, v1KebabCase),
+          'dotCase': (ops.dotCase, v1DotCase),
+          'flatCase': (ops.flatCase, v1FlatCase),
+          'screamingCase': (ops.screamingCase, v1ScreamingCase),
+          'screamingSnakeCase': (ops.screamingSnakeCase, v1ScreamingSnakeCase),
+          'screamingKebabCase': (ops.screamingKebabCase, v1ScreamingKebabCase),
+          'pascalSnakeCase': (ops.pascalSnakeCase, v1PascalSnakeCase),
+          'pascalKebabCase': (ops.pascalKebabCase, v1PascalKebabCase),
+          'camelSnakeCase': (ops.camelSnakeCase, v1CamelSnakeCase),
+          'camelKebabCase': (ops.camelKebabCase, v1CamelKebabCase),
+          'titleCase': (ops.titleCase, v1TitleCase),
+          'capitalizeFirst': (ops.capitalizeFirst, v1CapitalizeFirst),
+          'lowercaseFirst': (ops.lowercaseFirst, v1LowercaseFirst),
+          'capitalizeFirstLowerRest': (
+            ops.capitalizeFirstLowerRest,
+            v1CapitalizeFirstLowerRest,
+          ),
+        };
+
+    final rng = Random(1177);
+    for (var iter = 0; iter < 40000; iter++) {
+      final input = _randomInput(rng, 10);
+      for (final entry in conversions.entries) {
+        final (fresh, legacy) = entry.value;
+        expect(
+          fresh(input),
+          legacy(input),
+          reason: '${entry.key} diverged on "${_escape(input)}"',
+        );
+      }
     }
   });
 
