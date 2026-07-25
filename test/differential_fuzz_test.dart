@@ -13,8 +13,18 @@ import 'reference/v1_reference.dart';
 const List<String> _alphabet = <String>[
   'a', 'b', 'z', 'A', 'B', 'Z', '0', '9', //
   '_', '-', ' ', '\t', '\n',
+  '\r', '\r\n', // CR: reaches the \r\n and lone-\r branches
+  '\u{0085}', // NEL: trimmed by trim(), NOT matched by \s
+  '\u{FEFF}', // BOM: matched by \s AND trimmed
   '\u{00A0}', '\u{3000}', // NBSP, ideographic space
   '\u{00E9}', '\u{00C9}', // e-acute, E-acute
+  '\u{00DF}', // sharp s: uppercases to two characters
+  '\u{0130}', // dotted capital I: lowercases to two code units
+  '\u{212A}', // Kelvin sign: non-ascii whose lowercase IS ascii
+  // The only astral character here is an emoji, deliberately: it has no case
+  // mapping, so the capitalize helpers still match 1.0.0 on it. A *cased*
+  // astral character would make eight oracles diverge for a registered
+  // reason rather than a wrong one, so that lives in its own group.
   '\u{1F600}', // surrogate pair
   'HTTP', 'Http', 'xY', 'ABc',
 ];
