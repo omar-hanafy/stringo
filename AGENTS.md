@@ -32,8 +32,13 @@ dart run benchmark/stringo_benchmark.dart  # optional, measures against 1.0.0
 ```
 
 CI requires a PERFECT pana score on PRs ("CI / Pana" is a required check).
-The 1.0.0 baseline was 160/160; avoid changes that cost points (missing doc
-comments, dependency additions, format drift).
+2.0.0 scores 160/160 on pub.dev across all six platforms and is wasm-ready;
+avoid changes that cost points (missing doc comments, dependency additions,
+format drift).
+
+`main` is protected: PR-only, no force pushes or deletion, admins included,
+and "CI / Test on stable", "CI / Pana", and "pub-dry-run / dry-run" must pass.
+Do not push to `main` directly.
 
 ## Scope rule (the reason this package exists)
 
