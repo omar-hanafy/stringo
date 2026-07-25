@@ -173,6 +173,52 @@ void main() {
     }
   });
 
+  test('no divergence anywhere in the BMP, in four contexts', () {
+    // The random fuzz above draws from a fixed alphabet, so it can only find
+    // bugs involving characters someone thought to include. This sweeps every
+    // code point in the Basic Multilingual Plane instead, which is what
+    // actually pins the ASCII fast path: a character whose Unicode case
+    // mapping differs from its ASCII one, or that the scanner misclassifies,
+    // shows up here even though nobody predicted it.
+    var divergences = 0;
+    for (var c = 0; c <= 0xFFFF; c++) {
+      if (c >= 0xD800 && c <= 0xDFFF) continue; // lone surrogates below
+      final ch = String.fromCharCode(c);
+      for (final probe in ['a${ch}B', '${ch}ab', 'ab$ch', 'A${ch}a']) {
+        if (scanWordsToList(probe).join('|') !=
+                _v1Normalized(probe).join('|') ||
+            ops.snakeCase(probe) != v1SnakeCase(probe) ||
+            ops.pascalCase(probe) != v1PascalCase(probe) ||
+            ops.screamingCase(probe) != v1ScreamingCase(probe) ||
+            ops.camelCase(probe) != v1CamelCase(probe)) {
+          divergences++;
+          if (divergences <= 5) {
+            printOnFailure(
+              'diverged at U+${c.toRadixString(16)} '
+              'in "${_escape(probe)}"',
+            );
+          }
+        }
+      }
+    }
+    expect(divergences, 0, reason: 'see printed code points above');
+  });
+
+  test('lone surrogates do not break the scanner', () {
+    // Malformed UTF-16 that a code-unit scanner could mishandle.
+    for (final lone in [0xD800, 0xDBFF, 0xDC00, 0xDFFF]) {
+      final ch = String.fromCharCode(lone);
+      for (final probe in ['a${ch}B', ch, '$ch$ch', '_$ch', '$ch$ch$ch']) {
+        expect(
+          scanWordsToList(probe),
+          _v1Normalized(probe),
+          reason: 'lone U+${lone.toRadixString(16)}',
+        );
+        expect(ops.snakeCase(probe), v1SnakeCase(probe));
+      }
+    }
+  });
+
   test('exhaustive over every 1-3 char string from a focused alphabet', () {
     // Small enough to brute force, dense enough to hit every boundary rule.
     const units = <String>['a', 'B', 'c', 'D', '_', '-', ' ', '1'];
