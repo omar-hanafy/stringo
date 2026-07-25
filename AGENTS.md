@@ -1,7 +1,21 @@
 # stringo - agent guide (maintainers)
 
-Zero-dependency pure-Dart string package. Public API is `lib/stringo.dart`,
-which exports `lib/src/{case,transform,checks,regex_patterns}.dart`.
+Zero-dependency pure-Dart string package. Public API is `lib/stringo.dart`.
+
+Layers, depending strictly downward:
+
+```
+lib/src/chars.dart            code-unit classification, imports nothing
+lib/src/word_scanner.dart     the engine: allocation-free tokenizer
+lib/src/patterns.dart         String sources + precompiled RegExp
+lib/src/ops/{case,transform,checks}.dart    the implementations
+lib/src/core.dart             `Stringo` namespace, pure delegation
+lib/src/extensions/{case,transform,checks}.dart   extensions, pure delegation
+```
+
+`core.dart` and `extensions/` are PEERS over `ops/`, not layered on each other.
+Neither contains logic: every member is a one-line delegation, so the two
+public surfaces cannot drift. Put behavior in `ops/`, never in a facade.
 
 Extracted from `dart_helper_utils` in 2026; DHU 6.1.0+ depends on this package
 and re-exports it, so every change here is also a change to DHU's public API.
@@ -14,10 +28,11 @@ dart analyze .                             # public_member_api_docs is enforced
 dart test
 dart run tool/validate_agent_plugin.dart   # AI plugin/marketplace consistency
 dart pub publish --dry-run                 # must stay at 0 warnings
+dart run benchmark/stringo_benchmark.dart  # optional, measures against 1.0.0
 ```
 
 CI requires a PERFECT pana score on PRs ("CI / Pana" is a required check).
-The 1.0.0 baseline is 160/160; avoid changes that cost points (missing doc
+The 1.0.0 baseline was 160/160; avoid changes that cost points (missing doc
 comments, dependency additions, format drift).
 
 ## Scope rule (the reason this package exists)
@@ -35,6 +50,30 @@ of a real-world concept.**
   search (`string_search_algorithms`).
 
 Reject feature requests that cross this line; point them at the right package.
+
+## FFI was measured and rejected - do not revisit without new data
+
+"Move the hot loops to Rust/C++ and call them through `dart:ffi`" comes up
+periodically. It was measured for 2.0.0, with a real C dylib, not reasoned
+about:
+
+| 24-char identifier | ns/op |
+| --- | --- |
+| FFI round trip (alloc, encode, call, decode, free) | 164 |
+| FFI with a pre-allocated reused buffer | 130 |
+| Dart's built-in `toLowerCase()` | 20 |
+
+FFI is 6.5x SLOWER at that size and still 4.8x slower at 100,000 characters.
+Bare call overhead with no string work is 9.3 ns, which alone exceeds several
+whole stringo operations. Dart strings are UTF-16, so crossing the boundary
+forces an encode and a copy each way, while Dart's own string primitives are
+already native code that never pays it.
+
+It would also cost web support (`dart:ffi` does not exist on dart2js or
+dart2wasm), require prebuilt binaries for roughly nine platform/arch
+combinations, break the zero-dependency guarantee, and drop pana platform
+points. Reject it unless someone brings a benchmark showing otherwise for a
+workload with high compute per byte, which is not what this package does.
 
 ## ⚠️ The partition constraint
 
@@ -68,11 +107,33 @@ README and tested; do not "fix" them by adding a dependency.
 - Any public API change needs matching tests in `test/` (one file per concern)
   and a doc comment on every public member.
 - Behavior quirks are load-bearing and tested: `toWords` does not split on
-  digit boundaries, a leading separator yields an empty first word
-  (`'_leading'.toCamelCase` is `'Leading'`), `clean`/`toOneLine` join without a
-  separator, `truncate` appends the suffix on top of the length, and
-  `toTrainCase`/`toPascalKebabCase` are intentional aliases. Do not "fix"
-  these without a major release and a migration entry.
+  digit boundaries, `clean`/`toOneLine` join without a separator, and
+  `toTrainCase`/`toPascalKebabCase` are intentional aliases with
+  `toPascalKebabCase` as the canonical implementation. Do not "fix" these
+  without a major release and a migration entry.
+- Three invariants the engine depends on. Breaking any of them is silent:
+  1. **The scanner never emits an empty word.** Leading, trailing, and
+     repeated separator runs contribute nothing. `''.toWords` is `[]`.
+  2. **The ASCII fast path must have a Unicode fallback.** Dart's casing is
+     full Unicode, so an ASCII-only implementation corrupts non-English text.
+     `'ÉCOLE'.toSnakeCase` must stay `'école'`.
+  3. **`isBlank` is a scan, never an allocation.** It returns at the first
+     non-whitespace code unit. It must not call `clean`, build a copy, or
+     construct a `RegExp`. This is guarded by
+     `test/performance_contract_test.dart`.
+- **No `RegExp` inside a function body.** Dart does not cache compiled
+  patterns, so that recompiles per call. Hoist to a top-level `final`.
+  `test/regex_policy_test.dart` reads `lib/` and fails on violations; a
+  genuine exception needs a `regex-policy-exempt:` comment stating why.
+- The whitespace set in `chars.dart` is ECMAScript `\s`, proven equal to the
+  1.0.0 regex across the whole BMP by test. Narrowing it to ASCII silently
+  changes blank detection and word splitting for non-English text.
+- Correctness is proven by differential fuzzing against the 1.0.0
+  implementations in `test/reference/v1_reference.dart`, not by hand-written
+  examples. When you change behavior deliberately, register the exception in
+  `test/differential_fuzz_test.dart`; never edit the oracle to match new code.
+- README claims are executable: `test/readme_examples_test.dart` mirrors every
+  example and table row. Update it with the README.
 - `toTitleCase` always capitalizes the first word, then honors
   `titleCaseExceptions`. That set is public API.
 

@@ -1,5 +1,93 @@
 # CHANGELOG
 
+## 2.0.0
+
+A performance rewrite. Every operation is now built on a single tokenizer that
+reports word boundaries as index pairs and allocates nothing, and conversions
+stream those boundaries straight into one `StringBuffer`. Case mapping runs
+inline on code units for ASCII input and falls back to Dart's native Unicode
+casing otherwise, so accented text is never ASCII-folded.
+
+The package still has zero dependencies and still runs everywhere Dart does.
+Native code through `dart:ffi` was measured and rejected: marshalling UTF-16
+across the boundary costs more than the work itself, making it slower than
+staying in Dart.
+
+Case-conversion output is unchanged from 1.0.0 apart from the corrections
+listed under Fixed. That equivalence is verified by running the 1.0.0
+implementations against the new ones over generated input.
+
+### Performance
+
+Measured on one machine with `dart run benchmark/stringo_benchmark.dart`:
+
+| Operation | 1.0.0 | 2.0.0 | |
+| --- | --- | --- | --- |
+| `isBlank`, 100,000 chars | 3,166,000 ns | 3 ns | ~1,000,000x |
+| `isBlank`, 10 chars | 516 ns | 7 ns | 79x |
+| `toWords` | 1,880 ns | 148 ns | 12.7x |
+| `toCamelCase` | 3,769 ns | 288 ns | 13.1x |
+| `toSnakeCase` | 2,111 ns | 307 ns | 6.9x |
+| `slugify`, 54 chars | 11,268 ns | 1,108 ns | 10.2x |
+| 200,000 identifiers to `snake_case` | 341 ms | 56 ms | 6.1x |
+
+`isBlank` is the outlier because 1.0.0 answered it by allocating two
+whole-string copies and compiling a regex, which made it linear in the length
+of the input. It is now a scan that returns at the first non-whitespace
+character. If your code guarded `isBlank` with a length check or avoided it on
+large strings, you can drop that workaround.
+
+### Added
+
+- **`Stringo`**, a namespace exposing every operation as a plain static
+  function: `Stringo.snakeCase('userProfileField')`. Useful for passing an
+  operation as a value, and as an escape hatch when an extension member name
+  collides with one your project already defines. Every extension member is a
+  one-line delegation to it.
+- **Precompiled patterns.** Alongside the existing `String` sources there are
+  now `patternAlphanumeric`, `patternStartsWithNumber`,
+  `patternContainsDigits`, `patternNumeric`, `patternAlphabet`, and
+  `patternHasCapitalLetter`. Prefer them: Dart does not cache compiled
+  patterns, so `RegExp(regexNumeric)` recompiles on every call.
+
+### Removed
+
+- **`isEmptyOrNull` and `isNotEmptyOrNull`**, which were exact synonyms of
+  `isBlank` and `isNotBlank`. Rename; behavior is identical.
+
+### Changed
+
+- **`mask` and `insert` on a `String?` receiver now return `String?`** and
+  yield `null` for a null receiver, instead of `''` and the inserted value.
+  Null handling is now uniform across every transforming member on the
+  nullable extensions. Append `?? ''` to restore the old result exactly.
+  `orEmpty` and `toCharArray()` keep their existing null behavior.
+- **`mask` validates its bounds before checking the receiver**, so a negative
+  `visibleStart` or `visibleEnd` throws `ArgumentError` even when the receiver
+  is null.
+- **`slugify` treats `-`, `_`, and whitespace identically.** Any run of them,
+  in any mix, collapses to a single separator. Previously a literal hyphen
+  passed through untouched, so `'a-b'.slugify(separator: '_')` returned
+  `'a-b'`; it now returns `'a_b'`. The default hyphen separator is unaffected.
+- **`truncate` counts its suffix against the requested length** instead of
+  appending it on top. `'Hello World'.truncate(5)` was `'Hello...'` (8
+  characters) and is now `'He...'` (5). Ask for `length + suffix.length` to
+  reproduce the old output. A suffix longer than `length` yields exactly the
+  suffix.
+- **`toCharArray()` splits by Unicode code point** rather than UTF-16 code
+  unit, so a surrogate pair such as an emoji is no longer torn in half. It is
+  still code points rather than grapheme clusters; use `package:characters`
+  for those.
+
+### Fixed
+
+- **`toWords` no longer emits empty elements.** `''.toWords` was `['']` and is
+  now `[]`; `'  a  '.toWords` was `['', 'a', '']` and is now `['a']`.
+- **A leading separator no longer capitalizes camelCase output.**
+  `'_leading'.toCamelCase` returned `'Leading'` because the phantom empty first
+  word shifted the real one; it now returns `'leading'`. `toPascalCase` was
+  never affected.
+
 ## 1.0.0
 
 Initial release.
