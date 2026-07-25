@@ -65,6 +65,42 @@ void main() {
     test('whitespace is preserved, not dropped', () {
       expect(characters('a b'), ['a', ' ', 'b']);
     });
+
+    test('the returned list is growable, for every input', () {
+      // A fixed-length list here threw UnsupportedError on add/removeLast,
+      // and only for non-blank input, so the contract varied by argument.
+      for (final input in ['ab', '', '  ', '\u{1F600}']) {
+        final list = characters(input);
+        expect(
+          () => list.add('x'),
+          returnsNormally,
+          reason: 'characters("$input") must be growable',
+        );
+      }
+    });
+  });
+
+  group('removeEmptyLines: audit regressions', () {
+    test('collapses blank-line runs, including indented ones', () {
+      expect(removeEmptyLines('Line1\n\n\nLine2'), 'Line1\nLine2');
+      expect(removeEmptyLines('a\n  \n\t\nb'), 'a\nb');
+      expect(removeEmptyLines('a\r\n\r\nb'), 'a\nb');
+      expect(removeEmptyLines('a\r\rb'), 'a\nb');
+    });
+
+    test('leaves an unterminated whitespace run untouched', () {
+      // The case the old regex handled quadratically: spaces with no line
+      // break after them are ordinary content and must survive verbatim.
+      expect(removeEmptyLines('a    b'), 'a    b');
+      expect(removeEmptyLines('   '), '   ');
+      expect(removeEmptyLines(''), '');
+      expect(removeEmptyLines('a\t\tb'), 'a\t\tb');
+    });
+
+    test('trailing indentation before a break still collapses', () {
+      expect(removeEmptyLines('a   \n   \nb'), 'a\nb');
+      expect(removeEmptyLines('a\n   '), 'a\n   ');
+    });
   });
 
   group('slugify', () {
@@ -132,15 +168,39 @@ void main() {
       });
     });
 
-    test('is idempotent', () {
+    test('is idempotent for conventional separators', () {
       for (final input in [
         'Hello, World!',
         'a-_ b',
         '--x--',
         'Version 2 Update',
       ]) {
-        expect(slugify(slugify(input)), slugify(input), reason: input);
+        for (final sep in ['-', '_', 'x', '9']) {
+          final once = slugify(input, separator: sep);
+          expect(slugify(once, separator: sep), once, reason: '$input / $sep');
+        }
       }
+    });
+
+    test('is NOT idempotent for a separator outside a-z0-9, by nature', () {
+      // The separator is written verbatim and is not itself filtered, so on a
+      // second pass its own characters meet the drop rule. Documented rather
+      // than fixed: the alternative is filtering the caller's separator,
+      // which would silently produce a slug they did not ask for.
+      expect(slugify('hello world', separator: '::'), 'hello::world');
+      expect(slugify('hello::world', separator: '::'), 'helloworld');
+      expect(slugify('hello world', separator: 'X'), 'helloXworld');
+      expect(slugify('helloXworld', separator: 'X'), 'helloxworld');
+    });
+
+    test('a character whose lowercase is ascii survives', () {
+      // The doc says non-ascii is dropped; these are the stated exceptions.
+      expect(slugify('\u{212A}'), 'k', reason: 'Kelvin sign');
+      expect(
+        slugify('\u{0130}stanbul'),
+        'istanbul',
+        reason: 'dotted capital I',
+      );
     });
   });
 

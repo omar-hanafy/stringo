@@ -105,6 +105,19 @@ void main() {
       expect('abc'.insert(1, 'Z'), 'aZbc');
     });
 
+    test('insert rejects a negative index even on a null receiver', () {
+      // Argument validation must not depend on receiver nullness, the same
+      // rule mask follows. Without this, null.insert(-1, 'x') silently
+      // returned null and swallowed a programmer error.
+      expect(() => 'abc'.insert(-1, 'Z'), throwsRangeError);
+      expect(
+        () => (null as String?).insert(-1, 'x'),
+        throwsRangeError,
+        reason: 'a negative index is invalid whatever the receiver is',
+      );
+      expect((null as String?).insert(5, 'x'), isNull);
+    });
+
     test('toCharArray keeps surrogate pairs whole', () {
       expect('\u{1F600}'.toCharArray(), ['\u{1F600}']);
       expect('abc'.toCharArray(), ['a', 'b', 'c']);

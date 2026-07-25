@@ -48,6 +48,12 @@ String _v1CamelCase(String s) {
 String _v1NormalizeWhitespace(String s) =>
     s.trim().replaceAll(RegExp(r'\s+'), ' ');
 
+/// The 1.0.0 blank-line collapse. This pattern backtracks catastrophically on
+/// a run of spaces that is not followed by a line break.
+final RegExp _v1BlankLines = RegExp(r'(?:[\t ]*(?:\r?\n|\r))+');
+
+String _v1RemoveEmptyLines(String s) => s.replaceAll(_v1BlankLines, '\n');
+
 String _v1Slugify(String s) {
   final normalized = _v1NormalizeWhitespace(s).toLowerCase();
   if (normalized.isEmpty) return '';
@@ -179,6 +185,30 @@ void main() {
     },
     () {
       _sink += messy.normalizeWhitespace().length;
+    },
+  );
+
+  _header('Blank-line collapse (the other pathological case)');
+  final indented = List.filled(400, '${' ' * 40}line').join('\n');
+  _compare(
+    'removeEmptyLines, 400 indented lines',
+    2000,
+    () {
+      _sink += _v1RemoveEmptyLines(indented).length;
+    },
+    () {
+      _sink += indented.removeEmptyLines.length;
+    },
+  );
+  final spaceRun = ' ' * 8000;
+  _compare(
+    'removeEmptyLines, 8 KB unbroken run',
+    50,
+    () {
+      _sink += _v1RemoveEmptyLines(spaceRun).length;
+    },
+    () {
+      _sink += spaceRun.removeEmptyLines.length;
     },
   );
 

@@ -111,6 +111,46 @@ void main() {
     });
   });
 
+  group('removeEmptyLines is linear in input length', () {
+    test('a whitespace run with no line break does not blow up', () {
+      // This was quadratic until the regex was replaced by a scanner: the
+      // pattern consumed a whole run of spaces, then backtracked one
+      // character at a time looking for a line break that was not there.
+      // A 20 KB run of spaces took about 7 seconds.
+      final oneX = ' ' * 8000;
+      final twoX = ' ' * 16000;
+      final t1 = _medianMicros(11, () {
+        oneX.removeEmptyLines;
+      });
+      final t2 = _medianMicros(11, () {
+        twoX.removeEmptyLines;
+      });
+      expect(
+        t2,
+        lessThan((t1 + 1) * 4),
+        reason:
+            'removeEmptyLines looks superlinear in run length: '
+            '8k took ${t1}us, 16k took ${t2}us',
+      );
+    });
+
+    test('an indented document is not disproportionately slower', () {
+      final flat = List.filled(2000, 'line').join('\n');
+      final indented = List.filled(2000, '${' ' * 40}line').join('\n');
+      final t1 = _medianMicros(11, () {
+        flat.removeEmptyLines;
+      });
+      final t2 = _medianMicros(11, () {
+        indented.removeEmptyLines;
+      });
+      expect(
+        t2,
+        lessThan((t1 + 1) * 12),
+        reason: 'indentation costs too much: ${t1}us vs ${t2}us',
+      );
+    });
+  });
+
   group('slugify is linear in input length', () {
     test('2x the input costs about 2x, not 4x', () {
       final base = 'Hello, World! This is a Title. ' * 200;

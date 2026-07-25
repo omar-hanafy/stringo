@@ -121,6 +121,12 @@ README and tested; do not "fix" them by adding a dependency.
      non-whitespace code unit. It must not call `clean`, build a copy, or
      construct a `RegExp`. This is guarded by
      `test/performance_contract_test.dart`.
+  4. **A scanner must never re-probe ground it already rejected.** When a
+     forward probe fails, emit everything it walked and jump past it. Advancing
+     one character and probing again is how `removeEmptyLines` stayed quadratic
+     even after its regex was replaced: the first hand-written version
+     reproduced the exact backtracking bug it was meant to remove. Guarded by a
+     linearity contract, since the output was correct either way.
 - **No `RegExp` inside a function body.** Dart does not cache compiled
   patterns, so that recompiles per call. Hoist to a top-level `final`.
   `test/regex_policy_test.dart` reads `lib/` and fails on violations; a

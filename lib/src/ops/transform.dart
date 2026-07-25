@@ -1,25 +1,89 @@
 /// Transformations that produce a new string or a list of parts.
 ///
-/// Everything here is a single pass over the input writing into one
-/// [StringBuffer], with two deliberate exceptions noted at their definitions
-/// where a precompiled [RegExp] expresses the rule more clearly than a hand
-/// written scanner would.
+/// Everything here is a single linear pass over the input, writing into one
+/// [StringBuffer]. There is no [RegExp] in this library: every rule is a hand
+/// written scanner, which is both faster and immune to the backtracking
+/// blow-ups a pattern can hide.
 library;
 
 import 'package:stringo/src/chars.dart';
 import 'package:stringo/src/ops/checks.dart';
 
-/// Collapses a run of blank lines, including the trailing spaces and tabs that
-/// precede the newline, into a single newline.
-///
-/// This is one of the two rules in this library still expressed as a regex.
-/// It is compiled exactly once, at first use, and never inside a call.
-final RegExp _blankLineRun = RegExp(r'(?:[\t ]*(?:\r?\n|\r))+');
+/// Whether [c] is a space or a tab, the only characters a blank line may hold.
+@pragma('vm:prefer-inline')
+bool _isSpaceOrTab(int c) => c == 0x20 || c == 0x09;
+
+/// Consumes a line terminator at [i], returning the index after it, or [i]
+/// itself when there is none. Accepts `\r\n`, `\r`, and `\n`.
+@pragma('vm:prefer-inline')
+int _skipLineBreak(String s, int i, int n) {
+  if (i >= n) return i;
+  final c = s.codeUnitAt(i);
+  if (c == 0x0D) {
+    return (i + 1 < n && s.codeUnitAt(i + 1) == 0x0A) ? i + 2 : i + 1;
+  }
+  return c == 0x0A ? i + 1 : i;
+}
 
 /// Collapses runs of blank lines into a single newline.
 ///
 /// Example: `'Line1\n\n\nLine2'` becomes `'Line1\nLine2'`.
-String removeEmptyLines(String s) => s.replaceAll(_blankLineRun, '\n');
+///
+/// A "blank line" is any run of spaces and tabs terminated by `\r\n`, `\r`, or
+/// `\n`; one or more consecutive such lines collapse to a single `\n`.
+///
+/// This was a regex in 1.0.0. The pattern `(?:[\t ]*(?:\r?\n|\r))+` is
+/// catastrophically backtracking: at every position inside a run of spaces the
+/// engine consumed the whole run, then gave characters back one at a time
+/// looking for a line break that was not there. That made it quadratic in the
+/// length of any whitespace run NOT ending in a newline, so a 20 KB run of
+/// spaces took about 7 seconds. This scanner is linear and never backtracks.
+String removeEmptyLines(String s) {
+  final n = s.length;
+  final buffer = StringBuffer();
+  var i = 0;
+  while (i < n) {
+    // Try to consume one or more blank lines starting here.
+    var cursor = i;
+    var linesMatched = 0;
+    var deadEnd = i;
+    while (true) {
+      var probe = cursor;
+      while (probe < n && _isSpaceOrTab(s.codeUnitAt(probe))) {
+        probe++;
+      }
+      final afterBreak = _skipLineBreak(s, probe, n);
+      if (afterBreak == probe) {
+        // The spaces from cursor to probe are ordinary content, not a blank
+        // line, because nothing terminates them.
+        deadEnd = probe;
+        break;
+      }
+      cursor = afterBreak;
+      linesMatched++;
+    }
+    if (linesMatched > 0) {
+      buffer.writeCharCode(0x0A);
+      i = cursor;
+      continue;
+    }
+    // Emit the whole unterminated run at once and jump past it. Advancing by
+    // a single character here would re-probe the same run from every position
+    // inside it, which is precisely what made the old regex quadratic. If a
+    // run starting at i has no line break after it, no run starting further
+    // inside it can have one either, so there is nothing to reconsider.
+    if (deadEnd > i) {
+      for (var k = i; k < deadEnd; k++) {
+        buffer.writeCharCode(s.codeUnitAt(k));
+      }
+      i = deadEnd;
+    } else {
+      buffer.writeCharCode(s.codeUnitAt(i));
+      i++;
+    }
+  }
+  return buffer.toString();
+}
 
 /// Removes every newline character, joining the text onto one line.
 ///
@@ -126,22 +190,31 @@ List<String> lines(String s) {
 /// This is code points, not grapheme clusters. A flag emoji or a letter
 /// followed by a combining mark is still more than one element; use
 /// `package:characters` when you need user-perceived characters.
-List<String> characters(String s) =>
-    s.runes.map(String.fromCharCode).toList(growable: false);
+///
+/// The returned list is growable, matching every other list this package
+/// returns and matching what `split('')` produced in 1.0.0.
+List<String> characters(String s) => s.runes.map(String.fromCharCode).toList();
 
 /// Converts [s] into a URL- and filename-friendly slug.
 ///
 /// Example: `'Hello, World!'` becomes `'hello-world'`.
 ///
-/// The result is lowercased. Hyphens, underscores, and whitespace are all
+/// The text is lowercased. Hyphens, underscores, and whitespace are all
 /// separator-producing: any run of them, in any mix, collapses to a single
 /// [separator], and separators are trimmed from both ends. Every other
 /// character outside `a-z0-9` is dropped.
 ///
-/// This is ASCII-only by design: characters outside `a-z0-9` are dropped
-/// rather than transliterated, so `'Cafe'` with an accent becomes `'caf'`.
-/// Normalize accented text before calling this if you need those characters
-/// preserved.
+/// This is ASCII-only by design and does not transliterate, so an accented
+/// `'Cafe'` becomes `'caf'`. The exception is a character whose Unicode
+/// lowercase form is itself ASCII, which survives: the Kelvin sign `U+212A`
+/// becomes `'k'`, and a dotted capital I becomes `'i'`. Normalize accented
+/// text before calling this if you need the rest preserved.
+///
+/// [separator] is written verbatim and is NOT itself filtered, so a separator
+/// containing characters outside `a-z0-9` produces a result this function
+/// would not return to you unchanged if you slugified it again. The operation
+/// is idempotent for separators drawn from `a-z0-9`, `-`, and `_`, which
+/// covers every conventional slug.
 ///
 /// Throws an [ArgumentError] when [separator] is empty.
 String slugify(String s, {String separator = '-'}) {

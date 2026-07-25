@@ -173,13 +173,23 @@ Measured against 1.0.0 on the same machine with
 | `toSnakeCase` | 2,111 ns | 307 ns | 6.9x |
 | `slugify`, 54 chars | 11,268 ns | 1,108 ns | 10.2x |
 | 200,000 identifiers to `snake_case` | 341 ms | 56 ms | 6.1x |
+| `removeEmptyLines`, 400 indented lines | 14.6 ms | 0.12 ms | 121x |
+| `removeEmptyLines`, 8 KB unbroken run | 1,137 ms | 0.05 ms | ~22,700x |
 
 `isBlank` is the outlier because 1.0.0 answered it by allocating two
 whole-string copies and compiling a regex, which made it linear in the length
 of the input. It is now a scan that returns at the first non-whitespace
 character, so it costs the same on a ten-character string and a ten-megabyte
-one. The test suite asserts that as a complexity contract rather than a
-wall-clock threshold, so it cannot flake on a slow CI runner.
+one.
+
+`removeEmptyLines` was the other pathological case. Its pattern backtracked
+catastrophically inside a run of spaces not followed by a line break, making it
+quadratic in the length of such a run: a document indented 40 spaces cost about
+a hundred times an unindented one. It is now a linear scanner, and there is no
+`RegExp` left in the transform layer at all.
+
+Both are asserted as complexity contracts rather than wall-clock thresholds, so
+they cannot flake on a slow CI runner.
 
 ### Why not Rust or C++ through FFI
 

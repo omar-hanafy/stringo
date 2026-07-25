@@ -170,6 +170,47 @@ void main() {
     });
   });
 
+  group('supplementary-plane first characters are cased', () {
+    // 1.0.0 used s[0], a lone high surrogate for astral characters, and
+    // casing a lone surrogate is the identity. The first letter of Deseret,
+    // Osage, or Adlam text was silently left alone by every capitalizing
+    // conversion.
+    const deseretLower = '\u{10428}\u{10429}'; // two lowercase letters
+    const deseretUpper = '\u{10400}\u{10401}';
+
+    test('capitalizeFirst uppercases an astral first character', () {
+      expect(capitalizeFirst(deseretLower), '\u{10400}\u{10429}');
+    });
+
+    test('lowercaseFirst lowercases an astral first character', () {
+      expect(lowercaseFirst(deseretUpper), '\u{10428}\u{10401}');
+    });
+
+    test('capitalizeFirstLowerRest handles an astral first character', () {
+      expect(capitalizeFirstLowerRest(deseretLower), '\u{10400}\u{10429}');
+    });
+
+    test('conversions with a capitalize mode inherit the fix', () {
+      expect(pascalCase(deseretLower), '\u{10400}\u{10429}');
+      expect(titleCase(deseretLower), '\u{10400}\u{10429}');
+    });
+
+    test('a caseless astral character is left alone', () {
+      expect(capitalizeFirst('\u{1F600}a'), '\u{1F600}a');
+    });
+
+    test('the surrogate pair is never torn apart', () {
+      for (final f in [
+        capitalizeFirst,
+        lowercaseFirst,
+        capitalizeFirstLowerRest,
+      ]) {
+        final out = f(deseretLower);
+        expect(out.runes.length, 2, reason: 'produced a lone surrogate');
+      }
+    });
+  });
+
   group('preserved 1.0.0 quirks', () {
     test('digits never create a word boundary', () {
       expect(words('abc123Def'), ['abc123Def']);

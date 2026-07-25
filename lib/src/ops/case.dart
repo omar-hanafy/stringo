@@ -226,23 +226,52 @@ String title(String s) {
   return buffer.toString();
 }
 
+/// The number of code units in the first character of [s], counting a
+/// surrogate pair as one character.
+///
+/// stringo 1.0.0 used `s[0]` here, which is a lone high surrogate for any
+/// supplementary-plane character. Casing a lone surrogate is the identity, so
+/// the first letter of Deseret, Osage, or Adlam text was silently left
+/// untouched by every capitalizing conversion.
+@pragma('vm:prefer-inline')
+int _firstCharLength(String s) {
+  if (s.length >= 2) {
+    final first = s.codeUnitAt(0);
+    if (first >= 0xD800 && first <= 0xDBFF) {
+      final second = s.codeUnitAt(1);
+      if (second >= 0xDC00 && second <= 0xDFFF) return 2;
+    }
+  }
+  return 1;
+}
+
 /// Uppercases the first character of [s], leaving the rest untouched.
 ///
 /// Example: `'flutter AND DART'` becomes `'Flutter AND DART'`.
-String capitalizeFirst(String s) =>
-    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+String capitalizeFirst(String s) {
+  if (s.isEmpty) return s;
+  final k = _firstCharLength(s);
+  return '${s.substring(0, k).toUpperCase()}${s.substring(k)}';
+}
 
 /// Lowercases the first character of [s], leaving the rest untouched.
 ///
 /// Example: `'FLUTTER AND DART'` becomes `'fLUTTER AND DART'`.
-String lowercaseFirst(String s) =>
-    s.isEmpty ? s : '${s[0].toLowerCase()}${s.substring(1)}';
+String lowercaseFirst(String s) {
+  if (s.isEmpty) return s;
+  final k = _firstCharLength(s);
+  return '${s.substring(0, k).toLowerCase()}${s.substring(k)}';
+}
 
 /// Uppercases the first character of [s] and lowercases everything after it.
 ///
 /// Example: `'FLUTTER AND DART'` becomes `'Flutter and dart'`.
-String capitalizeFirstLowerRest(String s) =>
-    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
+String capitalizeFirstLowerRest(String s) {
+  if (s.isEmpty) return s;
+  final k = _firstCharLength(s);
+  return '${s.substring(0, k).toUpperCase()}'
+      '${s.substring(k).toLowerCase()}';
+}
 
 /// Whether [word] should stay lowercase inside a title.
 ///

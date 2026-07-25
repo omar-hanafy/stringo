@@ -108,9 +108,18 @@ extension NullableStringTransformExtensions on String? {
   /// Returns a new string with [str] inserted at [index], or `null` when this
   /// is `null`.
   ///
-  /// Throws a [RangeError] when [index] is outside `0..length`.
-  String? insert(int index, String str) =>
-      this == null ? null : Stringo.insert(this!, index, str);
+  /// Throws a [RangeError] when [index] is outside `0..length`, and when
+  /// [index] is negative regardless of whether the receiver is `null`.
+  String? insert(int index, String str) {
+    // A negative index is invalid whatever the receiver is, so it is rejected
+    // before the null check, the same way mask validates its bounds. Without
+    // this, a null receiver would silently swallow a programmer error.
+    if (index < 0) {
+      throw RangeError.range(index, 0, this?.length ?? 0, 'index');
+    }
+    if (this == null) return null;
+    return Stringo.insert(this!, index, str);
+  }
 
   /// Compares this string with [other], ignoring case.
   ///
