@@ -32,8 +32,7 @@ List<String> v1WordsNonEmpty(String s) =>
 String _cap(String s) =>
     s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
 
-bool _shouldIgnore(String w) =>
-    RegExp(r'^\d').hasMatch(w) || titleCaseExceptions.contains(w.toLowerCase());
+bool _shouldIgnore(String w) => v1ShouldIgnoreCapitalization(w);
 
 /// 1.0.0 `toPascalCase`.
 String v1PascalCase(String s) => v1WordsNonEmpty(s).map(_cap).join();
@@ -154,3 +153,196 @@ String v1SlugifyHyphen(String s) {
       .replaceAll(RegExp('-+'), '-')
       .replaceAll(RegExp(r'^-|-$'), '');
 }
+
+// ---------------------------------------------------------------------------
+// Check oracles.
+//
+// 1.0.0 answered every one of these with a RegExp; 2.0.0 answers most of them
+// with a scan. The patterns are hoisted to top-level finals rather than built
+// per call as 1.0.0 did: `RegExp(source)` with the same flags produces the
+// same matcher, and a per-call compile inside a 30,000 iteration loop would
+// dominate the suite. Nothing about the matching is changed.
+// ---------------------------------------------------------------------------
+
+final RegExp _v1Alphanumeric = RegExp(r'^[a-zA-Z0-9]+$');
+final RegExp _v1StartsWithNumber = RegExp(r'^\d');
+final RegExp _v1ContainsDigits = RegExp(r'\d');
+final RegExp _v1Numeric = RegExp(r'^\d+$');
+final RegExp _v1Alphabet = RegExp(r'^[a-zA-Z]+$');
+final RegExp _v1HasCapital = RegExp('[A-Z]');
+
+/// 1.0.0 `clean`, which was `toOneLine.removeWhiteSpaces`: two whole-string
+/// copies plus a compiled regex. This is the allocation `isBlank` used to pay
+/// on every call.
+String v1Clean(String s) => s.replaceAll('\n', '').replaceAll(_wsRun, '');
+
+/// 1.0.0 `isBlank` / `isEmptyOrNull`: `this == null || this!.clean.isEmpty`.
+bool v1IsBlank(String? s) => s == null || v1Clean(s).isEmpty;
+
+/// 1.0.0 `isNotBlank` / `isNotEmptyOrNull`.
+bool v1IsNotBlank(String? s) => !v1IsBlank(s);
+
+/// 1.0.0 `isAlphanumeric`. Note there is no `trim()` here, unlike
+/// [v1IsNumeric] and [v1IsAlphabet].
+bool v1IsAlphanumeric(String? s) => s != null && _v1Alphanumeric.hasMatch(s);
+
+/// 1.0.0 `startsWithNumber`.
+bool v1StartsWithNumber(String? s) =>
+    s != null && _v1StartsWithNumber.hasMatch(s);
+
+/// 1.0.0 `containsDigits`.
+bool v1ContainsDigits(String? s) => s != null && _v1ContainsDigits.hasMatch(s);
+
+/// 1.0.0 `hasCapitalLetter`.
+bool v1HasCapitalLetter(String? s) => s != null && _v1HasCapital.hasMatch(s);
+
+/// 1.0.0 `isNumeric`, which trimmed first.
+bool v1IsNumeric(String? s) => s != null && _v1Numeric.hasMatch(s.trim());
+
+/// 1.0.0 `isAlphabet`, which trimmed first.
+bool v1IsAlphabet(String? s) => s != null && _v1Alphabet.hasMatch(s.trim());
+
+/// 1.0.0 `equalsIgnoreCase`.
+///
+/// No fast path, no length check, no ASCII branch: two whole-string lowercase
+/// copies and one comparison. 2.0.0 added a hand-rolled ASCII fast path, which
+/// is why this oracle matters more than most.
+bool v1EqualsIgnoreCase(String? a, String? b) =>
+    (a == null && b == null) ||
+    (a != null && b != null && a.toLowerCase() == b.toLowerCase());
+
+/// 1.0.0 `hasMatch`. Compiles per call, exactly as 2.0.0 still does, because
+/// the pattern is supplied by the caller.
+bool v1HasMatch(
+  String? s,
+  String pattern, {
+  bool multiLine = false,
+  bool caseSensitive = true,
+  bool unicode = false,
+  bool dotAll = false,
+}) =>
+    s != null &&
+    RegExp(
+      pattern,
+      caseSensitive: caseSensitive,
+      multiLine: multiLine,
+      unicode: unicode,
+      dotAll: dotAll,
+    ).hasMatch(s);
+
+/// 1.0.0 `shouldIgnoreCapitalization`.
+bool v1ShouldIgnoreCapitalization(String w) =>
+    v1StartsWithNumber(w) || titleCaseExceptions.contains(w.toLowerCase());
+
+final RegExp _v1TitleSeparator = RegExp('[-_]');
+
+/// 1.0.0 `toTitle`.
+///
+/// Built on [v1TitleCase], the empty-word-normalized title caser, so the one
+/// registered difference does not leak in twice. `splitMapJoin` invokes
+/// `onNonMatch` for the empty regions at the ends and between adjacent
+/// separators; returning those unchanged is what the 1.0.0 body did, and is
+/// what makes this equal to the 2.0.0 scanner, which simply skips them.
+String v1Title(String s) => s.splitMapJoin(
+  _v1TitleSeparator,
+  onMatch: (m) => m.group(0)!,
+  onNonMatch: (sub) => sub.isNotEmpty ? v1TitleCase(sub) : sub,
+);
+
+// ---------------------------------------------------------------------------
+// Transform oracles that take arguments.
+//
+// 1.0.0 declared these on `String?`; the 2.0.0 ops layer is non-nullable
+// because null handling moved up into the extensions. These take non-null and
+// return non-null; the null contract is covered by extensions_test.dart.
+// ---------------------------------------------------------------------------
+
+/// 1.0.0 `mask`, minus the null-receiver branch.
+String v1Mask(
+  String s, {
+  int visibleStart = 0,
+  int visibleEnd = 0,
+  String char = '*',
+}) {
+  if (visibleStart < 0) {
+    throw ArgumentError.value(
+      visibleStart,
+      'visibleStart',
+      'Must not be negative',
+    );
+  }
+  if (visibleEnd < 0) {
+    throw ArgumentError.value(visibleEnd, 'visibleEnd', 'Must not be negative');
+  }
+  if (s.length <= visibleStart + visibleEnd) return s;
+  return s.substring(0, visibleStart) +
+      (char * (s.length - visibleStart - visibleEnd)) +
+      s.substring(s.length - visibleEnd);
+}
+
+/// 1.0.0 `insert`, minus the null-receiver branch.
+String v1Insert(String s, int index, String value) {
+  RangeError.checkValueInInterval(index, 0, s.length, 'index');
+  return s.substring(0, index) + value + s.substring(index);
+}
+
+/// 1.0.0 `removeSurrounding`.
+String v1RemoveSurrounding(String s, String delimiter) {
+  if (s.length >= delimiter.length + delimiter.length &&
+      s.startsWith(delimiter) &&
+      s.endsWith(delimiter)) {
+    return s.substring(delimiter.length, s.length - delimiter.length);
+  }
+  return s;
+}
+
+/// 1.0.0 `replaceAfter`.
+///
+/// The `defaultValue` gate was `isEmptyOrNull`, that is [v1IsBlank], so this
+/// oracle also pins 2.0.0's `isBlank` in situ rather than only in isolation.
+String v1ReplaceAfter(
+  String s,
+  String delimiter,
+  String replacement, [
+  String? defaultValue,
+]) {
+  final index = s.indexOf(delimiter);
+  return (index == -1)
+      ? (v1IsBlank(defaultValue) ? s : defaultValue!)
+      : s.replaceRange(index + delimiter.length, s.length, replacement);
+}
+
+/// 1.0.0 `replaceBefore`.
+String v1ReplaceBefore(
+  String s,
+  String delimiter,
+  String replacement, [
+  String? defaultValue,
+]) {
+  final index = s.indexOf(delimiter);
+  return (index == -1)
+      ? (v1IsBlank(defaultValue) ? s : defaultValue!)
+      : s.replaceRange(0, index, replacement);
+}
+
+// ---------------------------------------------------------------------------
+// Oracles for the INTENTIONALLY changed operations.
+//
+// These must never appear in the main fuzz loops. They exist so each
+// registered change can be stated as "equal to 1.0.0 everywhere except HERE",
+// which is a stronger claim than a property test alone: it also catches a
+// second, unregistered change riding along with the intended one.
+// ---------------------------------------------------------------------------
+
+/// 1.0.0 `truncate`: the suffix was appended on top of [length], so the result
+/// could overshoot the limit the caller asked for.
+String v1Truncate(String s, int length, {String suffix = '...'}) {
+  if (length <= 0) return '';
+  if (s.length <= length) return s;
+  return '${s.substring(0, length)}$suffix';
+}
+
+/// 1.0.0 `toCharArray`: split by UTF-16 code unit and gated on `isNotBlank`,
+/// so it tore surrogate pairs in half and returned `[]` for whitespace.
+List<String> v1ToCharArray(String? s) =>
+    v1IsNotBlank(s) ? s!.split('') : <String>[];
