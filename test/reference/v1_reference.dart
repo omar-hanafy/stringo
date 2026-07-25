@@ -113,3 +113,44 @@ String v1LowercaseFirst(String s) =>
 
 /// 1.0.0 `capitalizeFirstLowerRest`.
 String v1CapitalizeFirstLowerRest(String s) => _cap(s);
+
+// ---------------------------------------------------------------------------
+// Transform oracles. These are the 1.0.0 regex pipelines, verbatim.
+// ---------------------------------------------------------------------------
+
+final RegExp _wsRun = RegExp(r'\s+');
+final RegExp _lineBreak = RegExp(r'\r?\n');
+final RegExp _blankLines = RegExp(r'(?:[\t ]*(?:\r?\n|\r))+');
+
+/// 1.0.0 `normalizeWhitespace`.
+String v1NormalizeWhitespace(String s) => s.trim().replaceAll(_wsRun, ' ');
+
+/// 1.0.0 `removeWhiteSpaces`.
+String v1RemoveWhitespace(String s) => s.replaceAll(_wsRun, '');
+
+/// 1.0.0 `toOneLine`.
+String v1OneLine(String s) => s.replaceAll('\n', '');
+
+/// 1.0.0 `removeEmptyLines`.
+String v1RemoveEmptyLines(String s) => s.replaceAll(_blankLines, '\n');
+
+/// 1.0.0 `lines`.
+List<String> v1Lines(String s) => s.split(_lineBreak);
+
+/// 1.0.0 `words` (the whitespace splitter, not the identifier tokenizer).
+List<String> v1SplitWhitespace(String s) {
+  final normalized = v1NormalizeWhitespace(s);
+  return normalized.isEmpty ? <String>[] : normalized.split(' ');
+}
+
+/// 1.0.0 `slugify`, valid as an oracle only for a single-hyphen separator,
+/// since defect 3 changes how other separators treat a literal hyphen.
+String v1SlugifyHyphen(String s) {
+  final normalized = v1NormalizeWhitespace(s).toLowerCase();
+  if (normalized.isEmpty) return '';
+  return normalized
+      .replaceAll(RegExp(r'[^a-z0-9\s_-]'), '')
+      .replaceAll(RegExp(r'[_\s]+'), '-')
+      .replaceAll(RegExp('-+'), '-')
+      .replaceAll(RegExp(r'^-|-$'), '');
+}

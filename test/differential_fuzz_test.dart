@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:stringo/src/ops/case.dart' as ops;
+import 'package:stringo/src/ops/transform.dart' as tx;
 import 'package:stringo/src/word_scanner.dart';
 import 'package:test/test.dart';
 
@@ -118,6 +119,50 @@ void main() {
     for (var iter = 0; iter < 40000; iter++) {
       final input = _randomInput(rng, 10);
       for (final entry in conversions.entries) {
+        final (fresh, legacy) = entry.value;
+        expect(
+          fresh(input),
+          legacy(input),
+          reason: '${entry.key} diverged on "${_escape(input)}"',
+        );
+      }
+    }
+  });
+
+  test('transform operations match their v1 implementations', () {
+    final stringOps =
+        <String, (String Function(String), String Function(String))>{
+          'normalizeWhitespace': (
+            tx.normalizeWhitespace,
+            v1NormalizeWhitespace,
+          ),
+          'removeWhitespace': (tx.removeWhitespace, v1RemoveWhitespace),
+          'oneLine': (tx.oneLine, v1OneLine),
+          'removeEmptyLines': (tx.removeEmptyLines, v1RemoveEmptyLines),
+          // Valid only for the hyphen separator; defect 3 changes the others.
+          'slugify': (tx.slugify, v1SlugifyHyphen),
+        };
+    final listOps =
+        <
+          String,
+          (List<String> Function(String), List<String> Function(String))
+        >{
+          'splitWhitespace': (tx.splitWhitespace, v1SplitWhitespace),
+          'lines': (tx.lines, v1Lines),
+        };
+
+    final rng = Random(90210);
+    for (var iter = 0; iter < 40000; iter++) {
+      final input = _randomInput(rng, 10);
+      for (final entry in stringOps.entries) {
+        final (fresh, legacy) = entry.value;
+        expect(
+          fresh(input),
+          legacy(input),
+          reason: '${entry.key} diverged on "${_escape(input)}"',
+        );
+      }
+      for (final entry in listOps.entries) {
         final (fresh, legacy) = entry.value;
         expect(
           fresh(input),

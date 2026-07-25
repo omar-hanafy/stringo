@@ -1,204 +1,248 @@
-import 'package:stringo/stringo.dart';
+import 'package:stringo/src/ops/transform.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('null-ifying helpers', () {
-    test('nullIfEmpty only treats zero-length as empty', () {
-      expect(''.nullIfEmpty, isNull);
-      expect('text'.nullIfEmpty, 'text');
-      expect('   '.nullIfEmpty, '   ');
-    });
-
-    test('nullIfBlank also treats whitespace as empty', () {
-      expect('   '.nullIfBlank, isNull);
-      expect('\t'.nullIfBlank, isNull);
-      expect(' \n \t '.nullIfBlank, isNull);
-      expect('text'.nullIfBlank, 'text');
-    });
-
-    test('orEmpty', () {
-      expect((null as String?).orEmpty, '');
-      expect('x'.orEmpty, 'x');
-    });
-  });
-
   group('whitespace handling', () {
     test('removeEmptyLines collapses blank lines', () {
-      expect('Line1\n\n\nLine2'.removeEmptyLines, 'Line1\nLine2');
+      expect(removeEmptyLines('Line1\n\n\nLine2'), 'Line1\nLine2');
     });
 
-    test('toOneLine drops newlines without a separator', () {
-      expect('Line1\nLine2'.toOneLine, 'Line1Line2');
+    test('oneLine drops newlines without a separator', () {
+      expect(oneLine('Line1\nLine2'), 'Line1Line2');
+      expect(oneLine('no newlines here'), 'no newlines here');
     });
 
-    test('removeWhiteSpaces drops every whitespace character', () {
-      expect('a b c'.removeWhiteSpaces, 'abc');
-      expect('Line 1\tLine 2'.removeWhiteSpaces, 'Line1Line2');
-    });
-
-    test('clean combines both', () {
-      expect('a b\nc'.clean, 'abc');
-    });
-
-    test('nullable variants pass null through', () {
-      const String? nothing = null;
-      expect(nothing.toOneLine, isNull);
-      expect(nothing.removeWhiteSpaces, isNull);
-      expect(nothing.clean, isNull);
-
-      String? something = ' a \t b ';
-      expect(something.removeWhiteSpaces, 'ab');
-      expect(something.clean, 'ab');
-      something = null;
-      expect(something.clean, isNull);
+    test('removeWhitespace drops every whitespace character', () {
+      expect(removeWhitespace('a b c'), 'abc');
+      expect(removeWhitespace('Line 1\tLine 2'), 'Line1Line2');
+      expect(removeWhitespace('a\u{00A0}b'), 'ab');
     });
 
     test('normalizeWhitespace collapses and trims', () {
-      expect('  Line   1 \n Line 2  '.normalizeWhitespace(), 'Line 1 Line 2');
-      expect('   \n\t  '.normalizeWhitespace(), '');
-      expect(''.normalizeWhitespace(), '');
+      expect(normalizeWhitespace('  Line   1 \n Line 2  '), 'Line 1 Line 2');
+      expect(normalizeWhitespace('   \n\t  '), '');
+      expect(normalizeWhitespace(''), '');
     });
   });
 
   group('splitting', () {
-    test('words splits on whitespace runs', () {
-      expect('Hello World'.words, ['Hello', 'World']);
-      expect('  Hello   World  '.words, ['Hello', 'World']);
-      expect('Hello\nWorld'.words, ['Hello', 'World']);
+    test('splitWhitespace splits on whitespace runs', () {
+      expect(splitWhitespace('Hello World'), ['Hello', 'World']);
+      expect(splitWhitespace('  Hello   World  '), ['Hello', 'World']);
+      expect(splitWhitespace('Hello\nWorld'), ['Hello', 'World']);
     });
 
-    test('words returns empty for blank input', () {
-      expect(''.words, isEmpty);
-      expect('   '.words, isEmpty);
+    test('splitWhitespace returns empty for blank input', () {
+      expect(splitWhitespace(''), isEmpty);
+      expect(splitWhitespace('   '), isEmpty);
     });
 
     test('lines handles both LF and CRLF', () {
-      expect('Line 1\nLine 2'.lines, ['Line 1', 'Line 2']);
-      expect('Line 1\r\nLine 2'.lines, ['Line 1', 'Line 2']);
+      expect(lines('Line 1\nLine 2'), ['Line 1', 'Line 2']);
+      expect(lines('Line 1\r\nLine 2'), ['Line 1', 'Line 2']);
     });
 
     test('lines on empty input yields one empty line', () {
-      expect(''.lines, ['']);
+      expect(lines(''), ['']);
+    });
+
+    test('a lone carriage return is not a line ending', () {
+      expect(lines('a\rb'), ['a\rb']);
     });
   });
 
-  group('toCharArray', () {
-    test('splits into code units', () {
-      expect('abc'.toCharArray(), ['a', 'b', 'c']);
+  group('characters (defect 6: surrogate pairs)', () {
+    test('splits plain text into single characters', () {
+      expect(characters('abc'), ['a', 'b', 'c']);
+      expect(characters(''), isEmpty);
     });
 
-    test('blank and null yield an empty list', () {
-      expect(''.toCharArray(), isEmpty);
-      expect('   '.toCharArray(), isEmpty);
-      expect((null as String?).toCharArray(), isEmpty);
-    });
-  });
-
-  group('insert', () {
-    test('inserts at an interior index', () {
-      expect('abc'.insert(1, 'Z'), 'aZbc');
+    test('keeps a surrogate pair as one element', () {
+      expect(characters('\u{1F600}'), ['\u{1F600}']);
+      expect(characters('a\u{1F600}b'), ['a', '\u{1F600}', 'b']);
     });
 
-    test('inserts at both boundaries', () {
-      expect('abc'.insert(0, 'Z'), 'Zabc');
-      expect('abc'.insert(3, 'Z'), 'abcZ');
-    });
-
-    test('treats null as empty', () {
-      expect((null as String?).insert(0, 'x'), 'x');
-    });
-
-    test('rejects an out-of-range index', () {
-      expect(() => 'abc'.insert(4, 'Z'), throwsRangeError);
-      expect(() => 'abc'.insert(-1, 'Z'), throwsRangeError);
+    test('whitespace is preserved, not dropped', () {
+      expect(characters('a b'), ['a', ' ', 'b']);
     });
   });
 
-  group('equalsIgnoreCase', () {
-    test('compares case-insensitively', () {
-      expect('Hello'.equalsIgnoreCase('hello'), isTrue);
-      expect('Hello'.equalsIgnoreCase('world'), isFalse);
+  group('slugify', () {
+    test('converts to a lowercase slug', () {
+      expect(slugify('Hello, World!'), 'hello-world');
     });
 
-    test('two nulls are equal, one null is not', () {
-      expect((null as String?).equalsIgnoreCase(null), isTrue);
-      expect('A'.equalsIgnoreCase(null), isFalse);
-      expect((null as String?).equalsIgnoreCase('A'), isFalse);
+    test('collapses underscores and spaces', () {
+      expect(slugify('Foo__Bar  Baz'), 'foo-bar-baz');
+    });
+
+    test('collapses repeated separators', () {
+      expect(slugify('Already--slug'), 'already-slug');
+    });
+
+    test('trims separators from both ends', () {
+      expect(slugify('---'), '');
+      expect(slugify('-hello-'), 'hello');
+    });
+
+    test('retains numbers', () {
+      expect(slugify('Version 2 Update'), 'version-2-update');
+    });
+
+    test('supports a custom separator', () {
+      expect(slugify('Hello World', separator: '_'), 'hello_world');
+    });
+
+    test('supports a multi-character separator', () {
+      expect(slugify('Hello World', separator: '--'), 'hello--world');
+      expect(slugify('a  b', separator: '--'), 'a--b');
+    });
+
+    test('supports regex-special separators literally', () {
+      expect(slugify('a b', separator: '.'), 'a.b');
+      expect(slugify('a b', separator: r'$'), r'a$b');
+      expect(slugify('a b', separator: '+'), 'a+b');
+    });
+
+    test('returns empty for blank or symbol-only input', () {
+      expect(slugify(''), '');
+      expect(slugify('   '), '');
+      expect(slugify('!!!'), '');
+    });
+
+    test('drops non-ASCII rather than transliterating', () {
+      expect(slugify('Caf\u{00E9}'), 'caf');
+      expect(slugify('na\u{00EF}ve'), 'nave');
+    });
+
+    test('rejects an empty separator', () {
+      expect(() => slugify('Hello', separator: ''), throwsArgumentError);
+    });
+
+    group('defect 3: every separator kind produces the chosen separator', () {
+      test('an input hyphen no longer survives a different separator', () {
+        expect(slugify('a-b', separator: '_'), 'a_b');
+        expect(slugify('a-b', separator: '.'), 'a.b');
+        expect(slugify('a_b', separator: '-'), 'a-b');
+      });
+
+      test('mixed separator runs collapse to exactly one separator', () {
+        expect(slugify('a -_- b', separator: '_'), 'a_b');
+        expect(slugify('a-_ b'), 'a-b');
+      });
+    });
+
+    test('is idempotent', () {
+      for (final input in [
+        'Hello, World!',
+        'a-_ b',
+        '--x--',
+        'Version 2 Update',
+      ]) {
+        expect(slugify(slugify(input)), slugify(input), reason: input);
+      }
     });
   });
 
-  group('removeSurrounding', () {
-    test('strips only when present at both ends', () {
-      expect('"value"'.removeSurrounding('"'), 'value');
-      expect('value'.removeSurrounding('"'), 'value');
-      expect('"value'.removeSurrounding('"'), '"value');
-    });
-
-    test('null passes through', () {
-      expect((null as String?).removeSurrounding('"'), isNull);
-    });
-  });
-
-  group('replaceAfter / replaceBefore', () {
-    test('replaces around the first delimiter', () {
-      expect('foo=bar'.replaceAfter('=', 'baz'), 'foo=baz');
-      expect('foo=bar'.replaceBefore('=', 'baz'), 'baz=bar');
-    });
-
-    test('falls back when the delimiter is missing', () {
-      expect('foo'.replaceAfter(':', 'x', 'fallback'), 'fallback');
-      expect('foo'.replaceBefore(':', 'x', 'fallback'), 'fallback');
-      expect('foo'.replaceAfter(':', 'x'), 'foo');
-      expect('foo'.replaceBefore(':', 'x'), 'foo');
-    });
-
-    test('null passes through', () {
-      expect((null as String?).replaceAfter('=', 'x'), isNull);
-      expect((null as String?).replaceBefore('=', 'x'), isNull);
-    });
-  });
-
-  group('truncate', () {
-    test('shortens and appends the suffix', () {
-      expect('Hello World'.truncate(5), 'Hello...');
-      expect('Hello World'.truncate(5, suffix: '!'), 'Hello!');
+  group('truncate (defect 5: length is the maximum)', () {
+    test('the suffix counts against the limit', () {
+      expect(truncate('Hello World', 5), 'He...');
+      expect(truncate('Hello World', 5).length, 5);
+      expect(truncate('Hello World', 5, suffix: '!'), 'Hell!');
+      expect(truncate('Hello World', 8), 'Hello...');
     });
 
     test('leaves short-enough strings alone', () {
-      expect('Hello'.truncate(10), 'Hello');
-      expect('Hello'.truncate(5), 'Hello');
+      expect(truncate('Hello', 10), 'Hello');
+      expect(truncate('Hello', 5), 'Hello');
     });
 
-    test('non-positive length yields empty, null yields null', () {
-      expect('abc'.truncate(0), '');
-      expect('abc'.truncate(-1), '');
-      expect((null as String?).truncate(3), isNull);
+    test('non-positive length yields empty', () {
+      expect(truncate('abc', 0), '');
+      expect(truncate('abc', -1), '');
+    });
+
+    test('a suffix longer than the limit yields exactly the suffix', () {
+      expect(truncate('abcdefgh', 2), '...');
+      expect(truncate('abcdefgh', 3), '...');
+    });
+
+    test('never exceeds max(length, suffix.length)', () {
+      const input = 'abcdefghijklmnop';
+      for (var n = 0; n <= input.length + 5; n++) {
+        final result = truncate(input, n);
+        expect(
+          result.length,
+          lessThanOrEqualTo(n > 3 ? n : 3),
+          reason: 'n=$n gave "$result"',
+        );
+      }
     });
   });
 
   group('mask', () {
     test('keeps the requested edges visible', () {
-      expect('1234567890'.mask(visibleStart: 2, visibleEnd: 2), '12******90');
-      expect('12345'.mask(visibleStart: 1), '1****');
-      expect('12345'.mask(), '*****');
+      expect(mask('1234567890', visibleStart: 2, visibleEnd: 2), '12******90');
+      expect(mask('12345', visibleStart: 1), '1****');
+      expect(mask('12345'), '*****');
     });
 
     test('supports a custom mask character', () {
-      expect('12345'.mask(visibleStart: 1, char: '#'), '1####');
+      expect(mask('12345', visibleStart: 1, char: '#'), '1####');
     });
 
     test('returns the input when it is too short to mask', () {
-      expect('123'.mask(visibleStart: 2, visibleEnd: 2), '123');
-      expect('ab'.mask(visibleStart: 5), 'ab');
-    });
-
-    test('null yields the empty string', () {
-      expect((null as String?).mask(), '');
+      expect(mask('123', visibleStart: 2, visibleEnd: 2), '123');
+      expect(mask('ab', visibleStart: 5), 'ab');
     });
 
     test('rejects negative bounds', () {
-      expect(() => 'abc'.mask(visibleStart: -1), throwsArgumentError);
-      expect(() => 'abc'.mask(visibleEnd: -1), throwsArgumentError);
+      expect(() => mask('abc', visibleStart: -1), throwsArgumentError);
+      expect(() => mask('abc', visibleEnd: -1), throwsArgumentError);
+    });
+  });
+
+  group('insert', () {
+    test('inserts at an interior index and both boundaries', () {
+      expect(insert('abc', 1, 'Z'), 'aZbc');
+      expect(insert('abc', 0, 'Z'), 'Zabc');
+      expect(insert('abc', 3, 'Z'), 'abcZ');
+    });
+
+    test('rejects an out-of-range index', () {
+      expect(() => insert('abc', 4, 'Z'), throwsRangeError);
+      expect(() => insert('abc', -1, 'Z'), throwsRangeError);
+    });
+  });
+
+  group('removeSurrounding', () {
+    test('strips only when present at both ends', () {
+      expect(removeSurrounding('"value"', '"'), 'value');
+      expect(removeSurrounding('value', '"'), 'value');
+      expect(removeSurrounding('"value', '"'), '"value');
+    });
+
+    test('a single delimiter-length string is not stripped twice', () {
+      expect(removeSurrounding('"', '"'), '"');
+    });
+  });
+
+  group('replaceAfter / replaceBefore', () {
+    test('replaces around the first delimiter', () {
+      expect(replaceAfter('foo=bar', '=', 'baz'), 'foo=baz');
+      expect(replaceBefore('foo=bar', '=', 'baz'), 'baz=bar');
+    });
+
+    test('falls back when the delimiter is missing', () {
+      expect(replaceAfter('foo', ':', 'x', 'fallback'), 'fallback');
+      expect(replaceBefore('foo', ':', 'x', 'fallback'), 'fallback');
+      expect(replaceAfter('foo', ':', 'x'), 'foo');
+      expect(replaceBefore('foo', ':', 'x'), 'foo');
+    });
+
+    test('a blank default value is ignored', () {
+      expect(replaceAfter('foo', ':', 'x', '   '), 'foo');
+      expect(replaceBefore('foo', ':', 'x', ''), 'foo');
     });
   });
 }
