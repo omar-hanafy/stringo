@@ -171,7 +171,7 @@ Measured against 1.0.0 on the same machine with
 | `toWords` | 1,880 ns | 148 ns | 12.7x |
 | `toCamelCase` | 3,769 ns | 288 ns | 13.1x |
 | `toSnakeCase` | 2,111 ns | 307 ns | 6.9x |
-| `slugify`, 54 chars | 11,268 ns | 1,108 ns | 10.2x |
+| `slugify`, 54 chars | 11,300 ns | 362 ns | 31x |
 | 200,000 identifiers to `snake_case` | 341 ms | 56 ms | 6.1x |
 | `removeEmptyLines`, 400 indented lines | 14.6 ms | 0.12 ms | 121x |
 | `removeEmptyLines`, 8 KB unbroken run | 1,137 ms | 0.05 ms | ~22,700x |

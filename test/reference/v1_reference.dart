@@ -346,3 +346,28 @@ String v1Truncate(String s, int length, {String suffix = '...'}) {
 /// so it tore surrogate pairs in half and returned `[]` for whitespace.
 List<String> v1ToCharArray(String? s) =>
     v1IsNotBlank(s) ? s!.split('') : <String>[];
+
+/// 1.0.0 `slugify` for an arbitrary separator.
+///
+/// NOT generally fuzzable. 1.0.0 built regexes *from* the separator and
+/// applied them to the finished slug, so a separator drawn from `a-z0-9` eats
+/// content: `'x a y'.slugify(separator: 'aa')` returned `'xaay'`, one
+/// character short. This exists only so the hyphen-rule change can be
+/// contrasted against real 1.0.0 code rather than a remembered constant.
+String v1SlugifyGeneral(String s, {String separator = '-'}) {
+  if (separator.isEmpty) {
+    throw ArgumentError.value(
+      separator,
+      'separator',
+      'Separator must not be empty',
+    );
+  }
+  final normalized = v1NormalizeWhitespace(s).toLowerCase();
+  if (normalized.isEmpty) return '';
+  final escapedSeparator = RegExp.escape(separator);
+  return normalized
+      .replaceAll(RegExp(r'[^a-z0-9\s_-]'), '')
+      .replaceAll(RegExp(r'[_\s]+'), separator)
+      .replaceAll(RegExp('$escapedSeparator+'), separator)
+      .replaceAll(RegExp('^$escapedSeparator|$escapedSeparator\$'), '');
+}

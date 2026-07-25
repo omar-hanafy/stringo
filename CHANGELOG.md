@@ -28,7 +28,7 @@ Measured on one machine with `dart run benchmark/stringo_benchmark.dart`:
 | `toWords` | 1,880 ns | 148 ns | 12.7x |
 | `toCamelCase` | 3,769 ns | 288 ns | 13.1x |
 | `toSnakeCase` | 2,111 ns | 307 ns | 6.9x |
-| `slugify`, 54 chars | 11,268 ns | 1,108 ns | 10.2x |
+| `slugify`, 54 chars | 11,300 ns | 362 ns | 31x |
 | 200,000 identifiers to `snake_case` | 341 ms | 56 ms | 6.1x |
 | `removeEmptyLines`, 400 indented lines | 14.6 ms | 0.12 ms | 121x |
 | `removeEmptyLines`, 8 KB unbroken run | 1,137 ms | 0.05 ms | ~22,700x |
@@ -38,6 +38,12 @@ whole-string copies and compiling a regex, which made it linear in the length
 of the input. It is now a scan that returns at the first non-whitespace
 character. If your code guarded `isBlank` with a length check or avoided it on
 large strings, you can drop that workaround.
+
+`slugify` gained its final 3x late: it emitted a one-character separator with
+`StringBuffer.write(String)` while writing content with `writeCharCode`, and a
+buffer that receives both runs about 2.6x slower than one kept in a single
+mode. Case conversion had already been fixed for this; the transform layer had
+not.
 
 `removeEmptyLines` was the other pathological case. Its pattern
 `(?:[\t ]*(?:\r?\n|\r))+` backtracked catastrophically: inside a run of

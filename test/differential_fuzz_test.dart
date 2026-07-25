@@ -201,6 +201,21 @@ String? _randomFallback(Random rng) => switch (rng.nextInt(4)) {
   _ => _randomInput(rng, 3),
 };
 
+/// Whether [s] contains a well-formed surrogate pair.
+///
+/// 1.0.0 split by code unit, so it tore these in half. That is one of the two
+/// registered differences for `characters`.
+bool _hasSurrogatePair(String s) {
+  for (var i = 0; i + 1 < s.length; i++) {
+    final hi = s.codeUnitAt(i);
+    final lo = s.codeUnitAt(i + 1);
+    if (hi >= 0xD800 && hi <= 0xDBFF && lo >= 0xDC00 && lo <= 0xDFFF) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void main() {
   test('scanner matches the v1 tokenizer over 200k random inputs', () {
     // Fixed seed so a failure is reproducible rather than a one-off.
@@ -686,6 +701,90 @@ void main() {
         v1ShouldIgnoreCapitalization(w),
         () => 'word "${_escape(w)}"',
       );
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Registered behavior changes.
+  //
+  // These ops deliberately differ from 1.0.0, so they cannot be compared for
+  // equality. Each change is instead stated as "identical to 1.0.0 EXCEPT
+  // here", which is stronger than a property test alone: it also catches a
+  // second, unregistered change riding along with the intended one.
+  // -------------------------------------------------------------------------
+
+  test('truncate differs from v1 only by counting its suffix', () {
+    final rng = Random(2468);
+    for (var iter = 0; iter < 20000; iter++) {
+      final s = _randomInput(rng, 8);
+      final n = rng.nextInt(s.length + 4) - 1; // -1 .. length + 2
+      // With no suffix there is nothing to account for, so the two must agree
+      // EXACTLY. A divergence here is a bug, not the registered change.
+      _same(
+        'truncate/no-suffix',
+        tx.truncate(s, n, suffix: ''),
+        v1Truncate(s, n, suffix: ''),
+        () => 's="${_escape(s)}" n=$n',
+      );
+      // The CHANGELOG migration note, made executable: asking for
+      // length + suffix.length reproduces the 1.0.0 output exactly.
+      if (n > 0 && s.length > n + 3) {
+        _same(
+          'truncate/migration',
+          tx.truncate(s, n + 3),
+          v1Truncate(s, n),
+          () => 's="${_escape(s)}" n=$n',
+        );
+      }
+    }
+    // And the change itself, both sides asserted so it is visible in a diff.
+    expect(tx.truncate('Hello World', 5), 'He...');
+    expect(v1Truncate('Hello World', 5), 'Hello...');
+  });
+
+  test('characters differs from v1 only by code point and the blank gate', () {
+    final rng = Random(1357);
+    var compared = 0;
+    for (var iter = 0; iter < 20000; iter++) {
+      final s = _randomInput(rng, 8);
+      // The two registered differences, stated as the only exclusions.
+      if (v1IsBlank(s) || _hasSurrogatePair(s)) continue;
+      _sameList(
+        'characters',
+        tx.characters(s),
+        v1ToCharArray(s),
+        () => 's="${_escape(s)}"',
+      );
+      compared++;
+    }
+    expect(compared, greaterThan(1000), reason: 'exclusions ate the sample');
+    // Difference 1: code points, not code units.
+    expect(tx.characters('\u{1F600}'), ['\u{1F600}']);
+    expect(v1ToCharArray('\u{1F600}').length, 2, reason: '1.0.0 tore the pair');
+    // Difference 2: the op has no blank gate; the extension still does.
+    expect(tx.characters('  '), [' ', ' ']);
+    expect(v1ToCharArray('  '), isEmpty);
+  });
+
+  test('slugify differs from v1 only in how a literal hyphen is treated', () {
+    for (final sep in ['_', '.', '::']) {
+      expect(tx.slugify('a-b', separator: sep), 'a${sep}b');
+      expect(v1SlugifyGeneral('a-b', separator: sep), 'a-b');
+    }
+    // With no literal hyphen in the input the two still agree, for separators
+    // whose 1.0.0 regex round trip was sound. See v1SlugifyGeneral for why
+    // this cannot be claimed generally.
+    final rng = Random(31415);
+    for (var iter = 0; iter < 10000; iter++) {
+      final s = _randomInput(rng, 8).replaceAll('-', '');
+      for (final sep in ['_', '.']) {
+        _same(
+          'slugify/$sep',
+          tx.slugify(s, separator: sep),
+          v1SlugifyGeneral(s, separator: sep),
+          () => 's="${_escape(s)}"',
+        );
+      }
     }
   });
 }
