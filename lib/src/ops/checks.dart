@@ -104,6 +104,10 @@ bool equalsIgnoreCase(String? a, String? b) {
 /// caller-supplied source. In a hot loop, hoist a `RegExp` yourself and call
 /// [RegExp.hasMatch] directly, or use one of the precompiled `pattern*`
 /// objects this package exports.
+///
+// regex-policy-exempt: the pattern is supplied by the caller at call time, so
+// per-call compilation is inherent to the signature rather than an oversight.
+// Every pattern this package owns is precompiled in patterns.dart instead.
 bool hasMatch(
   String? s,
   String pattern, {
