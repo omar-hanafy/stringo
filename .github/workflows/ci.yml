@@ -69,8 +69,10 @@ jobs:
         run: dart pub downgrade
       - name: Analyze
         run: dart analyze
+      # Older allowed frontend_server_client releases require a removed SDK
+      # snapshot. Source mode runs the same suites with the downgraded graph.
       - name: Test
-        run: dart test
+        run: dart test --compiler source
 
   test-beta:
     name: Test on beta
