@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
@@ -53,12 +55,31 @@ jobs:
       - name: Test
         run: dart test
 
+  test-minimum:
+    name: Test on minimum SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.13.5'
+      - name: Resolve lowest supported dependencies
+        run: dart pub downgrade
+      - name: Analyze
+        run: dart analyze
+      - name: Test
+        run: dart test
+
   test-beta:
     name: Test on beta
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: beta
@@ -71,9 +92,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
       - run: dart pub get
-      - run: dart pub global activate pana 0.23.14
+      - run: dart pub global activate pana 0.23.19
       - run: pana --exit-code-threshold 0 .

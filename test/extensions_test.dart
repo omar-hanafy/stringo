@@ -229,6 +229,26 @@ void main() {
         reason: 'argument validation must not depend on receiver nullness',
       );
     });
+
+    test(
+      'mask handles large positive bounds on non-null and null receivers',
+      () {
+        final max = int.parse('9223372036854775807');
+        expect('abc'.mask(visibleStart: max, visibleEnd: 1), 'abc');
+        expect(
+          ('abc' as String?).mask(visibleStart: 1, visibleEnd: max),
+          'abc',
+        );
+        expect(
+          (null as String?).mask(visibleStart: max, visibleEnd: max),
+          isNull,
+        );
+        expect(
+          () => (null as String?).mask(visibleStart: max, visibleEnd: -1),
+          throwsArgumentError,
+        );
+      },
+    );
   });
 
   group('checks extensions', () {

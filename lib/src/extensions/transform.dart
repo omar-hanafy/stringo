@@ -108,6 +108,9 @@ extension NullableStringTransformExtensions on String? {
   /// Returns a new string with [str] inserted at [index], or `null` when this
   /// is `null`.
   ///
+  /// [index] is a UTF-16 code-unit offset. Inserting inside a surrogate pair
+  /// splits it.
+  ///
   /// Throws a [RangeError] when [index] is outside `0..length`, and when
   /// [index] is negative regardless of whether the receiver is `null`.
   String? insert(int index, String str) {
@@ -156,8 +159,10 @@ extension NullableStringTransformExtensions on String? {
       ? null
       : Stringo.replaceBefore(this!, delimiter, replacement, defaultValue);
 
-  /// Shortens this string so the result is at most [length] characters,
+  /// Shortens this string so the result is at most [length] UTF-16 code units,
   /// ending with [suffix].
+  ///
+  /// Counts [String.length], so a cut inside a surrogate pair can split it.
   ///
   /// Returns the string unchanged when it already fits within [length], the
   /// empty string when [length] is zero or negative, and `null` when this is
@@ -170,7 +175,9 @@ extension NullableStringTransformExtensions on String? {
       this == null ? null : Stringo.truncate(this!, length, suffix: suffix);
 
   /// Replaces the middle of this string with [char], keeping [visibleStart]
-  /// leading and [visibleEnd] trailing characters visible.
+  /// leading and [visibleEnd] trailing UTF-16 code units visible.
+  ///
+  /// Bounds inside a surrogate pair can leave an unpaired surrogate visible.
   ///
   /// Example: `'1234567890'.mask(visibleStart: 2, visibleEnd: 2)` yields
   /// `'12******90'`.

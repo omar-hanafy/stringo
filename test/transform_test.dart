@@ -256,6 +256,29 @@ void main() {
       expect(mask('ab', visibleStart: 5), 'ab');
     });
 
+    test('large positive visibility bounds cannot overflow', () {
+      // Parse at runtime so this regression also compiles on web targets,
+      // where an integer literal this large cannot be represented exactly.
+      final max = int.parse('9223372036854775807');
+      for (final (start, end) in [(max, 1), (1, max), (max, max)]) {
+        for (final input in ['', 'abc']) {
+          expect(
+            mask(input, visibleStart: start, visibleEnd: end),
+            input,
+            reason: 'input="$input", start=$start, end=$end',
+          );
+        }
+      }
+      expect(
+        () => mask('abc', visibleStart: max, visibleEnd: -1),
+        throwsArgumentError,
+      );
+      expect(
+        () => mask('abc', visibleStart: -1, visibleEnd: max),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects negative bounds', () {
       expect(() => mask('abc', visibleStart: -1), throwsArgumentError);
       expect(() => mask('abc', visibleEnd: -1), throwsArgumentError);
