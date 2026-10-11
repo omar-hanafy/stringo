@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 3.0.0
+
+### Changed
+
+- **Requires Dart 3.13.5 or later**, up from 3.10.0. Flutter users should
+  upgrade to Flutter 3.47.7 or later. The public API is unchanged from 2.x.
+
+### Fixed
+
+- `mask` returns the input unchanged for very large non-negative
+  `visibleStart` or `visibleEnd` values instead of overflowing and throwing
+  a `RangeError` on native platforms. Negative bounds still throw
+  `ArgumentError`, including for a null receiver.
+- Clarified that `truncate`, `mask`, and `insert` use UTF-16 code-unit
+  offsets and can split surrogate pairs; their slicing behavior is unchanged.
+
 ## 2.0.0
 
 A performance rewrite. Every operation is now built on a single tokenizer that

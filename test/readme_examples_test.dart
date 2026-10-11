@@ -107,6 +107,13 @@ void main() {
       expect('e\u{0301}'.toCharArray().length, 2);
     });
 
+    test('truncate, mask, and insert use UTF-16 code-unit offsets', () {
+      const emoji = '\u{1F600}';
+      expect('$emoji!'.truncate(1, suffix: '')!.codeUnits, [0xD83D]);
+      expect(emoji.mask(visibleStart: 1)!.codeUnits, [0xD83D, 0x2A]);
+      expect(emoji.insert(1, '!')!.codeUnits, [0xD83D, 0x21, 0xDE00]);
+    });
+
     test('camelCase and pascalCase are not reversible', () {
       expect('a_b'.toCamelCase, 'aB');
       expect('aB'.toWords, ['a', 'B']);

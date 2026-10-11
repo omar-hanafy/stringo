@@ -136,13 +136,18 @@ abstract final class Stringo {
   static String slugify(String input, {String separator = '-'}) =>
       transform_ops.slugify(input, separator: separator);
 
-  /// Shortens [input] so the result is at most [length] characters, ending
+  /// Shortens [input] so the result is at most [length] UTF-16 code units, ending
   /// with [suffix].
+  ///
+  /// Counts [String.length], so a cut inside a surrogate pair can split it.
+  /// A suffix longer than [length] is returned intact when truncation is needed.
   static String truncate(String input, int length, {String suffix = '...'}) =>
       transform_ops.truncate(input, length, suffix: suffix);
 
   /// Replaces the middle of [input] with [char], keeping [visibleStart]
-  /// leading and [visibleEnd] trailing characters visible.
+  /// leading and [visibleEnd] trailing UTF-16 code units visible.
+  ///
+  /// Bounds inside a surrogate pair can leave an unpaired surrogate visible.
   ///
   /// Throws an [ArgumentError] when either bound is negative.
   static String mask(
@@ -173,6 +178,9 @@ abstract final class Stringo {
   static String oneLine(String input) => transform_ops.oneLine(input);
 
   /// Returns [input] with [value] inserted at [index].
+  ///
+  /// [index] is a UTF-16 code-unit offset. Inserting inside a surrogate pair
+  /// splits it.
   ///
   /// Throws a [RangeError] when [index] is outside `0..input.length`.
   static String insert(String input, int index, String value) =>

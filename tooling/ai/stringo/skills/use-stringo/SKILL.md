@@ -12,7 +12,13 @@ import:
 import 'package:stringo/stringo.dart';
 ```
 
-**This skill documents stringo 2.0.0.** Several behaviors changed from 1.0.0.
+**This skill documents stringo 3.0.0.** It requires Dart 3.13.5 or newer;
+Flutter 3.47.7 bundles that Dart version. To migrate from 2.x, upgrade the
+SDK and change the dependency constraint to `stringo: ^3.0.0`. Public member
+names and ordinary results remain the same; `mask` also handles very large
+positive visibility bounds without integer overflow.
+
+Several behaviors changed from 1.0.0.
 If the project is on 1.x, use the `migrate-stringo-v1-to-v2` skill instead of
 assuming the semantics below.
 
@@ -135,9 +141,9 @@ Traps:
   `''`. A suffix longer than `length` yields exactly the suffix.
 - **`nullIfEmpty` is not `nullIfBlank`.** `'   '.nullIfEmpty` is `'   '`;
   `'   '.nullIfBlank` is `null`.
-- `mask` returns the input unchanged when it is too short to mask, and throws
-  `ArgumentError` on a negative `visibleStart`/`visibleEnd` even when the
-  receiver is null.
+- `mask` returns the input unchanged when the visible bounds cover the whole
+  input, including very large positive bounds. It throws `ArgumentError` on a
+  negative `visibleStart`/`visibleEnd` even when the receiver is null.
 - **On a null receiver, transforming members return `null`.** That includes
   `mask()` and `insert()`, which return `String?`. `orEmpty` (returns `''`) and
   `toCharArray()` (returns `[]`) are the deliberate exceptions.
@@ -186,6 +192,9 @@ Traps:
 - **`toCharArray()` splits by Unicode CODE POINT.** A surrogate pair such as an
   emoji stays whole, but a flag emoji or a letter with a combining mark is
   still more than one element. Use `package:characters` for grapheme clusters.
+- **`truncate`, `mask`, and `insert` count UTF-16 code units.** Their lengths
+  and offsets follow `String.length`, rather than code points or grapheme
+  clusters. A boundary inside a surrogate pair can split it.
 - **`toWords` does not split on digit boundaries**: `'user2Name'` stays one
   word.
 - **Character checks are ASCII-only**: `isAlphabet` is `A-Z` / `a-z`, and

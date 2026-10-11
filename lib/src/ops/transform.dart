@@ -264,8 +264,12 @@ String slugify(String s, {String separator = '-'}) {
   return buffer.toString();
 }
 
-/// Shortens [s] so the result is at most [length] characters, ending with
+/// Shortens [s] so the result is at most [length] UTF-16 code units, ending with
 /// [suffix].
+///
+/// Counts the input and suffix by [String.length], not by code points or
+/// grapheme clusters. A cut through a surrogate pair leaves an unpaired
+/// surrogate in the result.
 ///
 /// Returns [s] unchanged when it already fits, and the empty string when
 /// [length] is zero or negative.
@@ -304,7 +308,10 @@ void validateMaskBounds(int visibleStart, int visibleEnd) {
 }
 
 /// Replaces the middle of [s] with [char], keeping [visibleStart] leading and
-/// [visibleEnd] trailing characters visible.
+/// [visibleEnd] trailing UTF-16 code units visible.
+///
+/// Visibility bounds count code units, not code points or grapheme clusters;
+/// a bound inside a surrogate pair can leave an unpaired surrogate visible.
 ///
 /// Example: `mask('1234567890', visibleStart: 2, visibleEnd: 2)` yields
 /// `'12******90'`.
@@ -319,13 +326,20 @@ String mask(
   String char = '*',
 }) {
   validateMaskBounds(visibleStart, visibleEnd);
-  if (s.length <= visibleStart + visibleEnd) return s;
+  // Compare each bound before subtracting. Adding two valid positive bounds
+  // can overflow a native int and incorrectly proceed to substring calls.
+  if (visibleStart >= s.length || visibleEnd >= s.length - visibleStart) {
+    return s;
+  }
   return s.substring(0, visibleStart) +
       char * (s.length - visibleStart - visibleEnd) +
       s.substring(s.length - visibleEnd);
 }
 
 /// Returns a new string with [value] inserted at [index].
+///
+/// [index] is a UTF-16 code-unit offset, not a code-point or grapheme-cluster
+/// offset. Inserting inside a surrogate pair splits it.
 ///
 /// Throws a [RangeError] when [index] is outside `0..s.length`.
 String insert(String s, int index, String value) {

@@ -101,6 +101,15 @@ void main() {
       expect(() => Stringo.mask('x', visibleStart: -1), throwsArgumentError);
     });
 
+    test(
+      'mask preserves input when positive bounds exceed native int range',
+      () {
+        final max = int.parse('9223372036854775807');
+        expect(Stringo.mask('abc', visibleStart: max, visibleEnd: 1), 'abc');
+        expect(Stringo.mask('abc', visibleStart: 1, visibleEnd: max), 'abc');
+      },
+    );
+
     test('the four whitespace operations are each distinct', () {
       const messy = 'a  b\n\n\nc \t d';
       expect(Stringo.normalizeWhitespace(' $messy '), 'a b c d');

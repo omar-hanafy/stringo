@@ -22,8 +22,10 @@ import 'package:stringo/stringo.dart';
 
 ```yaml
 dependencies:
-  stringo: ^2.0.0
+  stringo: ^3.0.0
 ```
+
+Requires Dart 3.13.5 or later (included in Flutter 3.47.7 or later).
 
 No transitive dependencies. Only `dart:core` and `dart:convert`, so it runs
 everywhere Dart does: VM, Flutter, web, and WASM.
@@ -108,7 +110,7 @@ lowercase:
 | Member | Effect |
 | --- | --- |
 | `.slugify({separator})` | `'Hello, World!'` to `'hello-world'` |
-| `.truncate(n, {suffix})` | shortens to at most `n` characters |
+| `.truncate(n, {suffix})` | shortens by UTF-16 code-unit length, counting the suffix |
 | `.mask({visibleStart, visibleEnd, char})` | `'1234567890'` to `'12******90'` |
 | `.normalizeWhitespace()` | collapses whitespace runs, then trims |
 | `.removeWhiteSpaces` | drops every whitespace character |
@@ -188,8 +190,8 @@ quadratic in the length of such a run: a document indented 40 spaces cost about
 a hundred times an unindented one. It is now a linear scanner, and there is no
 `RegExp` left in the transform layer at all.
 
-Both are asserted as complexity contracts rather than wall-clock thresholds, so
-they cannot flake on a slow CI runner.
+Performance tests compare input-size scaling to catch complexity regressions.
+Paired measurements reduce sensitivity to changes in machine load.
 
 ### Why not Rust or C++ through FFI
 
@@ -222,6 +224,9 @@ These follow from having no dependencies. They are tested rather than hidden:
 - **`slugify` does not transliterate.** Characters outside `a-z0-9` are
   dropped, so `'Café'` becomes `'caf'`. Normalize accented text first if you
   need it preserved.
+- **`truncate`, `mask`, and `insert` use UTF-16 code-unit offsets.** They can
+  split a surrogate pair or a grapheme cluster. Use `toCharArray()` when you
+  need code-point boundaries and `package:characters` for grapheme boundaries.
 - **`toCharArray()` returns code points, not grapheme clusters.** A surrogate
   pair such as an emoji stays whole, but a flag emoji or a letter with a
   combining mark is still more than one element. Use
@@ -233,6 +238,13 @@ These follow from having no dependencies. They are tested rather than hidden:
 - **Word splitting does not break on digits.** `'abc123Def'` is one word.
 - **Character predicates are ASCII-only** by design, including
   `hasCapitalLetter` and `isAlphabet`.
+
+## Upgrading from 2.x
+
+Upgrade to Dart 3.13.5 or later, or Flutter 3.47.7 or later, before changing
+your dependency to `stringo: ^3.0.0`. No call-site migration is required.
+`mask` also handles very large non-negative visible bounds without integer
+overflow.
 
 ## Upgrading from 1.0.0
 

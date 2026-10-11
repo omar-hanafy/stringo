@@ -8,8 +8,10 @@ description: Use when moving a Dart/Flutter project's string code from dart_help
 `stringo` is the string toolkit extracted from `dart_helper_utils` (DHU)
 6.1.0. DHU depends on it and re-exports it.
 
-The current release is 2.x. DHU 6.1.x pins stringo `^1.0.0`, so a project that
-still depends on DHU gets 1.x semantics. If you adopt stringo directly at 2.x
+The current release is 3.x and requires Dart 3.13.5 or later (Flutter 3.47.7
+or later). The API matches 2.x; 3.x also fixes overflow for very large mask
+bounds. DHU 6.1.x pins stringo `^1.0.0`, so a project that
+still depends on DHU gets 1.x semantics. If you adopt stringo directly at 3.x
 after having used DHU's string helpers, also read the
 `migrate-stringo-v1-to-v2` skill: several behaviors changed between 1.x and
 2.x.
@@ -76,7 +78,7 @@ with `mask` - it did not, it depends on `isValidEmail`), and `limitFromStart`
 
 ```yaml
 dependencies:
-  stringo: ^2.0.0   # replaces dart_helper_utils
+  stringo: ^3.0.0   # replaces dart_helper_utils
 ```
 
 ```dart

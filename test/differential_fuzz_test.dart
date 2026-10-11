@@ -713,6 +713,23 @@ void main() {
   // second, unregistered change riding along with the intended one.
   // -------------------------------------------------------------------------
 
+  test('mask differs from v1 only when positive bounds overflow', () {
+    final max = int.parse('9223372036854775807');
+    for (final (start, end) in [(max, 1), (1, max), (max, max)]) {
+      expect(tx.mask('abc', visibleStart: start, visibleEnd: end), 'abc');
+      // Native integers wrap on addition; web integers do not wrap here.
+      // The oracle remains untouched, including its native overflow defect.
+      if (start + end < 0) {
+        expect(
+          () => v1Mask('abc', visibleStart: start, visibleEnd: end),
+          throwsRangeError,
+        );
+      } else {
+        expect(v1Mask('abc', visibleStart: start, visibleEnd: end), 'abc');
+      }
+    }
+  });
+
   test('truncate differs from v1 only by counting its suffix', () {
     final rng = Random(2468);
     for (var iter = 0; iter < 20000; iter++) {
